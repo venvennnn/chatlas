@@ -39,3 +39,10 @@
 ## Codex contribution record
 
 Codex authored the application, SQLite schema, worker/provider, voting rules, auth/EventSub plumbing, security boundaries, UI, automated tests, synthetic fixtures, measured reports, and operational documentation in this main thread. It diagnosed actual failures and recorded the passing reruns above. All bundled audience-like content is synthetic. User-supplied scope is preserved in SPEC.md.
+
+## Real-footage acceptance clarification — 2026-11-01
+
+- The user confirmed that the hackathon video must show the project actually running on Twitch and explain Codex use, within three minutes. Tightened docs/DEMO_SCRIPT.md so a synthetic-only or browser-preview take cannot be called submission-ready.
+- Added docs/RECORDING_CHECKLIST.md with a three-account real-chat rehearsal, explicit expected replacement-ballot counts, actual OBS/Twitch capture steps, and credential-safe recording guidance.
+- Rechecked effective app configuration without printing values: local session/encryption secrets are present; Twitch client credentials are absent. SQLite reports zero authorized connections and zero received Live messages. The active cloud policy still lacks the saved Twitch additions. These remain genuine external prerequisites.
+- A tracked-source-only ZIP is prepared outside the checkout for running on the OBS computer; it excludes local secrets, databases, model caches, and dependencies. No live acceptance or footage has been claimed.
