@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Activity,
+  Gamepad2,
+  Music2,
+  Coffee,
+  Blocks,
+  LockKeyhole,
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
@@ -46,10 +51,11 @@ import type { Snapshot, Decision } from "../../../packages/shared/src/index";
 import { voteHelp } from "../../../packages/shared/src/index";
 import { api, ApiError, subscribe } from "./api";
 import "./style.css";
+import "./studio.css";
 const colors = [
   "blue",
-  "mint",
   "peach",
+  "mint",
   "lavender",
   "sand",
   "pink",
@@ -63,10 +69,12 @@ const fmt = (n: number) =>
 function Brand() {
   return (
     <div className="brand">
-      <span className="brand-mark">
-        <Waypoints size={22} />
+      <span className="brand-mark studio-mark">
+        <i />
+        <i />
+        <i />
       </span>
-      chatlas<span className="brand-dot">.</span>
+      chatlas
     </div>
   );
 }
@@ -95,6 +103,55 @@ function Spark({
       />
     </svg>
   );
+}
+function IslandArt({ seed, count }: { seed: number; count: number }) {
+  const points = Array.from({ length: 96 }, (_, i) => {
+    const a = (i / 96) * Math.PI * 2;
+    const r =
+      42 + 3 * Math.sin(a * 3 + seed) + 2 * Math.cos(a * 5 + seed * 0.5);
+    return [50 + Math.cos(a) * r, 50 + Math.sin(a) * r];
+  });
+  const d =
+    points
+      .map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`)
+      .join(" ") + "Z";
+  return (
+    <svg className="island-art" viewBox="0 0 100 100" aria-hidden="true">
+      <path className="island-fill" d={d} />
+      {[1, 0.93, 0.83, 0.71, 0.58].map((scale, i) => (
+        <path
+          key={i}
+          className="contour"
+          d={d}
+          transform={`translate(${50 * (1 - scale)} ${50 * (1 - scale)}) scale(${scale})`}
+          opacity={1 - i * 0.14}
+        />
+      ))}
+      {Array.from({ length: Math.min(count, 18) }, (_, i) => {
+        const a = (i / Math.min(count, 18)) * Math.PI * 2 + seed;
+        return (
+          <circle
+            key={i}
+            cx={50 + Math.cos(a) * 34}
+            cy={50 + Math.sin(a) * 34}
+            r="1.2"
+          />
+        );
+      })}
+    </svg>
+  );
+}
+function TopicGlyph({ label }: { label: string }) {
+  const Icon = /minecraft/i.test(label)
+    ? Blocks
+    : /valorant|game/i.test(label)
+      ? Gamepad2
+      : /music/i.test(label)
+        ? Music2
+        : /break/i.test(label)
+          ? Coffee
+          : MessageCircle;
+  return <Icon size={25} />;
 }
 function App() {
   const [state, setState] = useState<Snapshot | null>(null),
@@ -178,6 +235,18 @@ function App() {
     }
   }
   const paused = state?.playback.paused ?? false;
+  const autoSelectSession = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      state?.session &&
+      state.topics.length &&
+      autoSelectSession.current !== state.session.id
+    ) {
+      autoSelectSession.current = state.session.id;
+      setSelected(state.topics[0].id);
+    }
+  }, [state]);
+  const slots = useRef(new Map<string, number>());
   const topic = state?.topics.find((t) => t.id === selected) ?? null;
   const topics = (state?.topics ?? [])
     .filter((t) => t.label.toLowerCase().includes(search.toLowerCase()))
@@ -185,6 +254,14 @@ function App() {
       (a, b) =>
         Number(b.pinned) - Number(a.pinned) || b.contributors - a.contributors,
     );
+  const visibleTopics = topics.slice(0, 4);
+  for (const id of slots.current.keys())
+    if (!visibleTopics.some((t) => t.id === id)) slots.current.delete(id);
+  for (const t of visibleTopics)
+    if (!slots.current.has(t.id)) {
+      const used = new Set(slots.current.values());
+      slots.current.set(t.id, [0, 1, 2, 3].find((n) => !used.has(n)) ?? 0);
+    }
   const decision = state?.decision;
   const source = state?.session?.source ?? "demo";
   function addCandidate(label: string) {
@@ -199,7 +276,47 @@ function App() {
   }
   if (location.pathname === "/overlay") return <Overlay />;
   return (
-    <div className="app-shell">
+    <div className="app-shell studio">
+      <header className="studio-header">
+        <Brand />
+        <span className={`badge ${source === "live" ? "live" : "demo"}`}>
+          {state?.session ? source.toUpperCase() : "READY"}
+        </span>
+        <span className="studio-channel">
+          @{state?.connection.channel ?? "yourchannel"}
+        </span>
+        <div className="studio-header-spacer" />
+        <button
+          className="button primary"
+          onClick={() => setComposer(true)}
+          disabled={!state?.session}
+        >
+          <Plus size={20} />
+          New decision
+        </button>
+        <div className="studio-status">
+          <span className={`connection ${online ? "connected" : ""}`}>
+            <i />
+            {online ? "Workspace connected" : "Connecting to workspace"}
+          </span>
+          <small>
+            {state?.session
+              ? source === "demo"
+                ? "Synthetic demo data"
+                : source === "replay"
+                  ? "Recorded conversation"
+                  : state.connection.state
+              : "Ready for a new session"}
+          </small>
+        </div>
+        <button
+          className="studio-owner"
+          aria-label="Open settings"
+          onClick={() => setTab("Settings")}
+        >
+          {(state?.connection.channel ?? "S").slice(0, 1).toUpperCase()}
+        </button>
+      </header>
       <aside className="sidebar">
         <Brand />
         <div className="workspace-label">YOUR WORKSPACE</div>
@@ -289,7 +406,7 @@ function App() {
               <div className="eyebrow">THE CONVERSATION, AT A GLANCE</div>
               <h1>
                 {tab === "Live room"
-                  ? "Your chat. A little clearer."
+                  ? "Live room"
                   : tab === "Decisions"
                     ? "Make the next move together."
                     : tab === "Session history"
@@ -298,7 +415,7 @@ function App() {
               </h1>
               <p>
                 {tab === "Live room"
-                  ? "See the themes taking shape, then give your community a say."
+                  ? "The conversation, made clear."
                   : tab === "Decisions"
                     ? "Turn the conversation into a clear, explicit approval vote."
                     : tab === "Session history"
@@ -507,46 +624,47 @@ function App() {
                           >
                             <path d="M200 155 Q350 130 510 120 M200 155 Q220 300 350 320 M510 120 Q640 180 605 300 M350 320 Q480 380 605 300" />
                           </svg>
-                          {topics.slice(0, 8).map((t, i) => {
-                            const size =
-                              112 +
-                              Math.sqrt(
+                          {visibleTopics.map((t, i) => {
+                            const slot = slots.current.get(t.id) ?? i;
+                            const value =
+                              state.settings.area === "people"
+                                ? t.contributors
+                                : t.messages;
+                            const max = Math.max(
+                              1,
+                              ...visibleTopics.map((t) =>
                                 state.settings.area === "people"
                                   ? t.contributors
                                   : t.messages,
-                              ) *
-                                12;
+                              ),
+                            );
+                            const size = 220 + Math.sqrt(value / max) * 85;
                             return (
                               <button
                                 key={t.id}
-                                className={`island ${colors[i % 8]} ${selected === t.id ? "chosen" : ""} ${t.pinned ? "pinned" : ""}`}
+                                className={`island ${colors[slot % 8]} ${selected === t.id ? "chosen" : ""} ${t.pinned ? "pinned" : ""}`}
                                 style={{
-                                  left: t.x + "%",
-                                  top: t.y + "%",
-                                  width: Math.min(size, 205),
-                                  height: Math.min(size, 205),
+                                  left: [25, 73, 25, 73][slot] + "%",
+                                  top: [27, 29, 73, 73][slot] + "%",
+                                  width: size,
+                                  height: size,
                                 }}
                                 onClick={() => setSelected(t.id)}
                                 aria-label={`${t.label}, ${t.contributors} people, ${t.messages} messages`}
                               >
-                                <span className="island-icon">
-                                  {t.kind === "emote" ? (
-                                    <Sparkles size={18} />
-                                  ) : t.kind === "question" ? (
-                                    <CircleHelp size={18} />
-                                  ) : t.kind === "suggestion" ? (
-                                    <MousePointer2 size={18} />
-                                  ) : (
-                                    <MessageCircle size={18} />
-                                  )}
-                                </span>
-                                <strong>{t.label}</strong>
-                                <span className="island-count">
-                                  <Users size={12} />
-                                  {t.contributors} people
-                                </span>
-                                <span className="island-messages">
-                                  {t.messages} messages
+                                <IslandArt
+                                  seed={slot + 1}
+                                  count={t.contributors}
+                                />
+                                <span className="island-content">
+                                  <span className="island-icon">
+                                    <TopicGlyph label={t.label} />
+                                  </span>
+                                  <strong>{t.label}</strong>
+                                  <span className="island-count">
+                                    <b>{t.contributors}</b> people
+                                  </span>
+                                  <Spark values={t.spark} />
                                 </span>
                                 {t.pinned && (
                                   <Pin size={12} className="pin-mark" />
@@ -572,16 +690,20 @@ function App() {
                           <div className="atlas-legend">
                             <span>
                               <i className="blue-dot" />
-                              Distinct threads
+                              Area ={" "}
+                              {state.settings.area === "people"
+                                ? "distinct people"
+                                : "message volume"}
                             </span>
-                            <span>
-                              <i className="mint-dot" />
-                              Stable positions
-                            </span>
-                            <span>
-                              <i className="peach-dot" />
-                              Evidence behind every island
-                            </span>
+                            {topics.length > 4 && (
+                              <button
+                                className="text-button"
+                                onClick={() => setView("list")}
+                              >
+                                View all {topics.length} topics{" "}
+                                <ArrowRight size={14} />
+                              </button>
+                            )}
                           </div>
                           <div className="atlas-hint">
                             <MousePointer2 size={13} />
@@ -636,7 +758,7 @@ function App() {
                       {topic ? (
                         <>
                           <div className="inspector-top">
-                            <span className="eyebrow">TOPIC INSPECTOR</span>
+                            <span className="eyebrow">TOPIC</span>
                             <button
                               aria-label="Close inspector"
                               className="icon-button"
@@ -652,7 +774,8 @@ function App() {
                           </div>
                           <h2>{topic.label}</h2>
                           <p className="inspector-sub">
-                            A thread in the conversation
+                            A thread in the last two minutes. Explore the
+                            messages behind it.
                           </p>
                           <div className="topic-stats">
                             <div>
@@ -681,38 +804,51 @@ function App() {
                           </div>
                           <div className="inspector-rule" />
                           <div className="evidence-heading">
-                            <h3>What people are saying</h3>
-                            <span>PRIVATE</span>
+                            <h3>Example messages</h3>
+                            <span>
+                              <LockKeyhole size={12} />
+                              Only visible to you
+                            </span>
                           </div>
                           <div className="evidence-list">
-                            {topic.evidence.slice(0, 4).map((m) => (
-                              <div className="evidence" key={m.id}>
-                                <div>
-                                  <span className="message-avatar">
-                                    {m.name.slice(0, 1).toUpperCase()}
-                                  </span>
-                                  <strong>{m.name}</strong>
-                                  <time>
-                                    {new Date(m.at).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </time>
+                            {topic.evidence
+                              .filter(
+                                (m, i, all) =>
+                                  all.findIndex(
+                                    (x) =>
+                                      x.userId === m.userId &&
+                                      x.text === m.text,
+                                  ) === i,
+                              )
+                              .slice(0, 3)
+                              .map((m) => (
+                                <div className="evidence" key={m.id}>
+                                  <div>
+                                    <span className="message-avatar">
+                                      {m.name.slice(0, 1).toUpperCase()}
+                                    </span>
+                                    <strong>{m.name}</strong>
+                                    <time>
+                                      {new Date(m.at).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </time>
+                                  </div>
+                                  <p>{m.text}</p>
+                                  <button
+                                    className="delete-message"
+                                    aria-label={"Remove message " + m.id}
+                                    onClick={() =>
+                                      void act(() =>
+                                        api("/moderate", { messageId: m.id }),
+                                      )
+                                    }
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
                                 </div>
-                                <p>{m.text}</p>
-                                <button
-                                  className="delete-message"
-                                  aria-label={"Remove message " + m.id}
-                                  onClick={() =>
-                                    void act(() =>
-                                      api("/moderate", { messageId: m.id }),
-                                    )
-                                  }
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                           <div className="repetition-note">
                             <span>
@@ -896,7 +1032,7 @@ function App() {
                   <section className="timeline-card">
                     <div className="timeline-title">
                       <Activity size={17} />
-                      <strong>Room activity</strong>
+                      <strong>Conversation activity</strong>
                       <span>Last 2 minutes</span>
                     </div>
                     <div

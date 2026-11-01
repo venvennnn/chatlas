@@ -4,11 +4,9 @@ test("Demo evidence, keyboard composer, replacement ballots, closed results and 
   browser,
 }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Live room" })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Your chat. A little clearer." }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Synthetic conversation", { exact: true }),
+    page.getByText("Synthetic demo data", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Reset Demo", exact: true }).click();
@@ -25,9 +23,11 @@ test("Demo evidence, keyboard composer, replacement ballots, closed results and 
   await expect(island).toBeVisible();
   await island.click();
   await expect(
-    page.getByRole("heading", { name: "What people are saying" }),
+    page.getByRole("heading", { name: "Example messages" }),
   ).toBeVisible();
-  await expect(page.getByText("PRIVATE", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Only visible to you", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "New decision", exact: true }).focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog");
@@ -174,9 +174,29 @@ test("newly authorized owner sees Ready and can choose to start Live without aut
   await expect(
     page.getByRole("button", { name: "Start session", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("READY", { exact: true })).toBeVisible();
-  await expect(page.getByText("@test-owner", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByText("READY", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByText("@test-owner", { exact: true }),
+  ).toBeVisible();
   expect(starts).toBe(0);
   expect(bootstraps).toBe(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("Studio atlas exposes remaining topics through the list view", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".island").first()).toBeVisible();
+  expect(await page.locator(".island").count()).toBeLessThanOrEqual(4);
+  await page.getByRole("button", { name: /View all \d+ topics/ }).click();
+  await expect(page.getByPlaceholder("Find a topic…")).toBeVisible();
+  expect(await page.locator(".topic-row").count()).toBeGreaterThan(4);
+  await expect(
+    page
+      .getByRole("banner")
+      .getByRole("button", { name: "New decision", exact: true }),
+  ).toBeVisible();
 });

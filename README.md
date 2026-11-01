@@ -79,7 +79,7 @@ Raw messages expire after **24 hours**; active memberships expire after **120 se
 
 ## Validation and remaining acceptance
 
-Latest automated checks: **20 server tests and 4 browser tests passed**, plus production process/restart smoke, type checking, lint, and build. Clean lockfile installation was repeated successfully.
+Latest automated checks: **20 server tests and 5 browser tests passed**, plus production process/restart smoke, type checking, lint, and build. Clean lockfile installation was repeated successfully.
 
 Actual measurements are in [LOAD_RESULTS.json](docs/LOAD_RESULTS.json) and [EVALUATION_RESULTS.json](docs/EVALUATION_RESULTS.json). The latter is a tiny Codex-authored synthetic set, **not** the required independent human-labeled evaluation. No general accuracy, frame-rate, Twitch-latency, or audience-impact claims follow from it.
 
