@@ -1,7 +1,8 @@
 {
-  "at": "2026-11-01T08:28:12.060Z",
+  "at": "2026-11-01T09:02:50.735Z",
   "result": "passed",
   "checks": [
+    "Railway public domain supplies the HTTPS application origin",
     "npm start serves built frontend and referenced asset",
     "health responds",
     "origin and cookie authenticated mutations",

@@ -9,3 +9,10 @@ node_modules
 test-results
 playwright-report
 *.log
+**/.env
+**/.env.*
+**/.data
+**/.model-cache
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm

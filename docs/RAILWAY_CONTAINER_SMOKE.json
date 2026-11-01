@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-01T09:05:34.079513+00:00",
+  "result": "passed",
+  "checks": [
+    "Docker image build",
+    "root-owned named-volume initialization",
+    "application UID 1000",
+    "Railway generated-domain origin fallback",
+    "injected PORT=8080 health and frontend serving",
+    "authenticated vote persistence",
+    "closed result and cookie survive container restart"
+  ],
+  "limits": "Local managed Docker test. Actual Railway provisioning, external HTTPS, Twitch authorization and OBS remain pending."
+}

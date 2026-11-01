@@ -51,6 +51,8 @@ The initial Demo contains synthetic messages and keeps generating them until pau
 
 Install a browser with `npx playwright install chromium`. If Chromium is already installed, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to its path. Tests use a separate in-memory or temporary database except browser tests, which operate on the local Demo database and reset the Demo. Do not run browser tests against an active Live session.
 
+For Railway, follow [the deployment guide](docs/RAILWAY_SETUP.md). The repo includes `railway.json`, a Docker image with mounted-volume initialization, and automatic HTTPS origin selection from Railway's generated public domain.
+
 Production: `npm run build`, set `NODE_ENV=production`, `APP_ORIGIN=https://your-host`, `SESSION_SECRET`, and a **64-character hexadecimal** `TOKEN_ENCRYPTION_KEY`, then `npm start`. The backend defaults to port 3001. Keep `.env` private. Production rejects missing secrets and non-HTTPS public origins. See [deployment](docs/DEPLOYMENT.md).
 
 ## Twitch and OBS

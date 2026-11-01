@@ -13,7 +13,8 @@ const env = {
   ...process.env,
   PORT: String(port),
   NODE_ENV: "production",
-  APP_ORIGIN: origin,
+  APP_ORIGIN: "",
+  RAILWAY_PUBLIC_DOMAIN: "chatlas.test",
   DATABASE_PATH: join(dir, "production.sqlite"),
   SESSION_SECRET: randomBytes(32).toString("hex"),
   TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("hex"),
@@ -99,6 +100,7 @@ try {
     at: new Date().toISOString(),
     result: "passed",
     checks: [
+      "Railway public domain supplies the HTTPS application origin",
       "npm start serves built frontend and referenced asset",
       "health responds",
       "origin and cookie authenticated mutations",

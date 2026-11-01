@@ -18,11 +18,13 @@ const schema = z.object({
   EMBEDDING_MODEL: z.string().default("Xenova/all-MiniLM-L6-v2"),
   MODEL_CACHE_DIR: z.string().default(".model-cache"),
 });
-const parsed = schema.safeParse(
-  Object.fromEntries(
-    Object.entries(process.env).map(([k, v]) => [k, v === "" ? undefined : v]),
-  ),
+const runtimeVariables = Object.fromEntries(
+  Object.entries(process.env).map(([k, v]) => [k, v === "" ? undefined : v]),
 );
+if (!runtimeVariables.APP_ORIGIN && process.env.RAILWAY_PUBLIC_DOMAIN) {
+  runtimeVariables.APP_ORIGIN = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+}
+const parsed = schema.safeParse(runtimeVariables);
 if (!parsed.success)
   throw new Error(
     "Invalid configuration: " +
