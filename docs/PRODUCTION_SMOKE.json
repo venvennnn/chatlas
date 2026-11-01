@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-01T08:28:12.060Z",
+  "result": "passed",
+  "checks": [
+    "npm start serves built frontend and referenced asset",
+    "health responds",
+    "origin and cookie authenticated mutations",
+    "approval vote persistence",
+    "graceful process shutdown",
+    "same-database restart and authenticated snapshot recovery"
+  ],
+  "limits": "Local production process tested behind a declared HTTPS public origin. No external TLS reverse proxy, Docker image, Twitch connection, or OBS process was exercised."
+}

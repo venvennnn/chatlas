@@ -1,0 +1,43 @@
+{
+  "name": "chatlas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/web && npm run build -w apps/server",
+    "start": "npm run start -w apps/server",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:load": "node --import tsx tests/load.ts",
+    "model:download": "node --use-env-proxy scripts/download-model.mjs",
+    "format": "prettier --write .",
+    "evaluate": "node --import tsx tests/evaluate.ts",
+    "secrets:init": "node scripts/init-secrets.mjs",
+    "test:production": "node --import tsx tests/production.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.14.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  }
+}

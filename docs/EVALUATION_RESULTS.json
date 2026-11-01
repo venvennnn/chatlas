@@ -1,0 +1,18 @@
+{
+  "source": "Codex-authored synthetic fixtures with explicit topic labels; not human audience evaluation",
+  "samples": 16,
+  "lexical": {
+    "pairwisePrecision": 1,
+    "pairwiseRecall": 1,
+    "tp": 24,
+    "fp": 0,
+    "fn": 0
+  },
+  "semantic": {
+    "status": "not evaluated; requires cached model and independent human-labeled evaluation"
+  },
+  "stability": {
+    "status": "not independently evaluated"
+  },
+  "limitations": "Small synthetic set. No claims of general clustering quality or audience representativeness."
+}

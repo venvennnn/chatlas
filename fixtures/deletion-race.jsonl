@@ -1,0 +1,8 @@
+{"type":"message","id":"one","userId":"a","text":"Please play Minecraft","offset":0}
+{"type":"message","id":"two","userId":"b","text":"Minecraft sounds good","offset":1000}
+{"type":"message","id":"three","userId":"c","text":"Not Minecraft again please","offset":2000}
+{"type":"delete","id":"moderation-first","messageId":"late","offset":3000}
+{"type":"message","id":"late","userId":"d","text":"This should never become evidence","offset":4000}
+{"type":"message","id":"vote-first","userId":"a","text":"!vote 1 3","offset":5000}
+{"type":"message","id":"vote-replacement","userId":"a","text":"!vote 2","offset":6000}
+{"type":"delete","id":"remove-replacement","messageId":"vote-replacement","offset":7000}

@@ -1,0 +1,24 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS analysis_sessions(id TEXT PRIMARY KEY, source TEXT NOT NULL, started_at INTEGER NOT NULL, ended_at INTEGER);
+CREATE TABLE IF NOT EXISTS chat_messages(id TEXT NOT NULL,session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,user_id TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source_at INTEGER NOT NULL,arrival INTEGER NOT NULL,sequence INTEGER NOT NULL,emotes TEXT NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(session_id,id));
+CREATE TABLE IF NOT EXISTS deliveries(id TEXT PRIMARY KEY,at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS tombstones(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,message_id TEXT NOT NULL,PRIMARY KEY(session_id,message_id));
+CREATE TABLE IF NOT EXISTS clears(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,user_id TEXT NOT NULL,before_at INTEGER NOT NULL,PRIMARY KEY(session_id,user_id));
+CREATE TABLE IF NOT EXISTS topics(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,id TEXT NOT NULL,label TEXT,approved INTEGER DEFAULT 0,hidden INTEGER DEFAULT 0,pinned INTEGER DEFAULT 0,PRIMARY KEY(session_id,id));
+CREATE TABLE IF NOT EXISTS topic_memberships(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,message_id TEXT NOT NULL,topic_id TEXT NOT NULL,PRIMARY KEY(session_id,message_id));
+CREATE TABLE IF NOT EXISTS decisions(id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,question TEXT NOT NULL,options TEXT NOT NULL,state TEXT NOT NULL,duration INTEGER NOT NULL,opened_at INTEGER,deadline INTEGER,result TEXT,created_at INTEGER NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS one_open_decision ON decisions((1)) WHERE state='open';
+CREATE TABLE IF NOT EXISTS vote_revisions(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,decision_id TEXT NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,message_id TEXT NOT NULL,user_id TEXT NOT NULL,choices TEXT NOT NULL,source_at INTEGER NOT NULL,arrival_seq INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(decision_id,message_id));
+CREATE TABLE IF NOT EXISTS dashboard_sessions(hash TEXT PRIMARY KEY,expires INTEGER NOT NULL,role TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS overlay_credentials(hash TEXT PRIMARY KEY,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS channel_connections(id TEXT PRIMARY KEY,channel TEXT NOT NULL,tokens TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS oauth_states(hash TEXT PRIMARY KEY,browser_hash TEXT NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS audit_events(id INTEGER PRIMARY KEY,session_id TEXT,action TEXT NOT NULL,at INTEGER NOT NULL,detail TEXT);
+CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS idempotency(key TEXT PRIMARY KEY,request TEXT NOT NULL,response TEXT NOT NULL,at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS message_window ON chat_messages(session_id,source_at);
+CREATE INDEX IF NOT EXISTS vote_order ON vote_revisions(decision_id,user_id,source_at,arrival_seq,message_id);
+PRAGMA user_version=1;
+
+CREATE TABLE IF NOT EXISTS manual_memberships(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,message_id TEXT NOT NULL,topic_id TEXT NOT NULL,PRIMARY KEY(session_id,message_id));
+CREATE TABLE IF NOT EXISTS replay_events(session_id TEXT NOT NULL REFERENCES analysis_sessions(id) ON DELETE CASCADE,event_id TEXT NOT NULL,offset_ms INTEGER NOT NULL,payload TEXT NOT NULL,played INTEGER DEFAULT 0,PRIMARY KEY(session_id,event_id));

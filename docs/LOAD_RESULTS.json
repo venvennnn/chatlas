@@ -1,0 +1,39 @@
+{
+  "at": "2026-11-01T08:29:52.763Z",
+  "source": "synthetic; not Twitch traffic",
+  "hardware": {
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 5,
+    "totalMemoryGiB": 33,
+    "node": "v24.19.0"
+  },
+  "workload": {
+    "sustained": "50 messages/s for 6 s",
+    "burst": "200 messages/s for 2 s",
+    "messages": 700,
+    "elapsedMs": 8003
+  },
+  "persistLatencyMs": {
+    "median": 0.07887899999991532,
+    "p95": 0.4100779999998849,
+    "max": 2.1218589999998585
+  },
+  "workerRoundTripMs": {
+    "max": 425.2044649999999
+  },
+  "rssMiB": 305,
+  "analysis": "Limited semantic grouping · lexical TF-IDF (model not cached)",
+  "ballots": {
+    "counts": [
+      7,
+      0,
+      7
+    ],
+    "voters": 7,
+    "winners": [
+      0,
+      2
+    ]
+  },
+  "limits": "Bounded local SQLite/worker test. Does not measure Twitch network latency, rendering FPS, or end-to-end vote visibility."
+}
