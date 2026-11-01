@@ -96,6 +96,7 @@ export class Analysis {
       now,
       reset: this.resetPending,
       generation: this.generation,
+      testUniqueMessages: this.store.setting("testUniqueMessages", false),
       manual: this.store.all(
         "SELECT message_id,topic_id FROM manual_memberships WHERE session_id=?",
         sessionId,

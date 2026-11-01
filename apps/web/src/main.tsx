@@ -169,6 +169,7 @@ function App() {
     [chat, setChat] = useState(""),
     [user, setUser] = useState("you"),
     [busy, setBusy] = useState(false),
+    [contributorToggle, setContributorToggle] = useState<boolean | null>(null),
     [overlayUrl, setOverlayUrl] = useState(""),
     [overlayLayout, setOverlayLayout] = useState("compact"),
     [lightPreview, setLightPreview] = useState(false),
@@ -276,7 +277,9 @@ function App() {
   }
   if (location.pathname === "/overlay") return <Overlay />;
   return (
-    <div className="app-shell studio">
+    <div
+      className={`app-shell studio ${state?.settings.testUniqueMessages ? "testing-contributors" : ""}`}
+    >
       <header className="studio-header">
         <Brand />
         <span className={`badge ${source === "live" ? "live" : "demo"}`}>
@@ -438,6 +441,26 @@ function App() {
               )}
             </div>
           </div>
+          {state?.settings.testUniqueMessages && (
+            <div role="status" className="test-contributors-notice">
+              <Sparkles size={18} />
+              <span>
+                <strong>TEST MODE — simulated contributors</strong>Every message
+                counts as a different contributor for topics. Voting still
+                counts real Twitch accounts.
+              </span>
+              <button
+                className="button small-button"
+                onClick={() =>
+                  void act(() =>
+                    api("/settings", { testUniqueMessages: false }, "PATCH"),
+                  )
+                }
+              >
+                Use real contributors
+              </button>
+            </div>
+          )}
           {error && (
             <div role="alert" className="alert">
               <CircleHelp size={18} />
@@ -586,7 +609,11 @@ function App() {
                         <div className="metric-inline">
                           <Users size={14} />
                           <strong>{fmt(state.participants)}</strong>
-                          <span>participants</span>
+                          <span>
+                            {state.settings.testUniqueMessages
+                              ? "test contributors"
+                              : "participants"}
+                          </span>
                           <span className="dot-divider">·</span>
                           <MessageCircle size={14} />
                           <strong>{fmt(state.messageCount)}</strong>
@@ -1449,6 +1476,40 @@ function App() {
                       120-second discussion window. Raw messages expire after 24
                       hours. Vote revisions stay until their session is deleted.
                     </p>
+                    <label className="toggle-row contributor-toggle">
+                      <span>
+                        <strong>Each message is a unique contributor</strong>
+                        <small>
+                          Testing only. OFF: count real accounts. ON: simulate a
+                          new contributor per message so one account can form
+                          topics.
+                        </small>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={
+                          contributorToggle ??
+                          Boolean(state.settings.testUniqueMessages)
+                        }
+                        disabled={busy}
+                        onChange={(e) => {
+                          const value = e.target.checked;
+                          setContributorToggle(value);
+                          void act(() =>
+                            api(
+                              "/settings",
+                              { testUniqueMessages: value },
+                              "PATCH",
+                            ),
+                          ).finally(() => setContributorToggle(null));
+                        }}
+                      />
+                    </label>
+                    <p className="settings-note">
+                      Test counts are labeled on the dashboard and OBS overlay.
+                      Original message authors and voting weight are preserved.
+                      Turn this off for real audience measurements.
+                    </p>
                     <div className="setting-value">
                       <span>Analysis</span>
                       <strong>{state.analysis.provider}</strong>
@@ -1917,6 +1978,9 @@ function OverlayPanel({
     >
       <div className="broadcast-heading">
         <Brand />
+        {state.settings.testUniqueMessages && (
+          <span className="test-counts-label">TEST COUNTS</span>
+        )}
         <span>
           {state.session?.source === "live"
             ? "CHAT PULSE"

@@ -428,3 +428,119 @@ test("authorized owner can load a workspace with no active session before and af
     config.TOKEN_ENCRYPTION_KEY = previousKey;
   }
 });
+
+test("unique-message contributor testing is reversible, labeled and never changes real identities or vote weight", async () => {
+  const { app, store, analysis } = await createApp(":memory:", {
+    background: false,
+    model: "lexical",
+  });
+  try {
+    const s = store.start("live");
+    const now = Date.now();
+    for (let i = 0; i < 3; i++)
+      store.ingest(s.id, {
+        id: "topic-" + i,
+        userId: "one-real-account",
+        name: "One account",
+        text: "Please play Minecraft",
+        at: now,
+        arrival: now,
+        emotes: [],
+      });
+    store.run(
+      "INSERT INTO dashboard_sessions VALUES(?,?,?)",
+      hash("toggle-owner"),
+      Date.now() + 60000,
+      "owner",
+    );
+    const headers = {
+      origin,
+      "x-chatlas-client": "dashboard",
+      cookie: "chatlas=toggle-owner",
+    };
+    const drain = async () => {
+      for (let i = 0; i < 200; i++) {
+        if (!analysis.busy) {
+          if (analysis.resetPending)
+            analysis.update(s.id, store.messages(s.id));
+          else return;
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      throw new Error("Worker did not settle");
+    };
+    analysis.update(s.id, store.messages(s.id));
+    await drain();
+    assert.equal(analysis.topics.length, 0);
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/api/settings",
+      headers,
+      payload: { testUniqueMessages: true },
+    });
+    assert.equal(patch.statusCode, 200, patch.body);
+    await drain();
+    assert.equal(analysis.topics.length, 1);
+    assert.equal(analysis.topics[0].contributors, 3);
+    assert.equal(analysis.topics[0].share, 1);
+    assert.equal(analysis.topics[0].repetition, 0);
+    assert.ok(
+      analysis.topics[0].evidence.every((m) => m.userId === "one-real-account"),
+    );
+    const simulated = await app.inject({ url: "/api/snapshot", headers });
+    assert.equal(simulated.json().participants, 3);
+    assert.equal(simulated.json().settings.testUniqueMessages, true);
+    store.run(
+      "INSERT INTO dashboard_sessions VALUES(?,?,?)",
+      hash("toggle-overlay"),
+      Date.now() + 60000,
+      "overlay",
+    );
+    const overlay = await app.inject({
+      url: "/api/overlay/snapshot",
+      headers: { cookie: "chatlas_overlay=toggle-overlay" },
+    });
+    assert.equal(overlay.json().settings.testUniqueMessages, true);
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: "/api/settings",
+          headers: { ...headers, cookie: "chatlas=toggle-overlay" },
+          payload: { testUniqueMessages: false },
+        })
+      ).statusCode,
+      401,
+    );
+    const d = store.createDecision(s.id, "Choose", ["A", "B"], 60);
+    store.open(d.id, now - 100);
+    for (let i = 0; i < 2; i++)
+      store.ingest(s.id, {
+        id: "vote-" + i,
+        userId: "one-real-account",
+        name: "One account",
+        text: i === 0 ? "!vote 1" : "!vote 2",
+        at: now + i,
+        arrival: now + i,
+        emotes: [],
+      });
+    assert.equal(store.result(d.id).voters, 1);
+    assert.deepEqual(store.result(d.id).counts, [0, 1]);
+    await app.inject({
+      method: "PATCH",
+      url: "/api/settings",
+      headers,
+      payload: { testUniqueMessages: false },
+    });
+    await drain();
+    assert.equal(analysis.topics.length, 0);
+    const real = await app.inject({ url: "/api/snapshot", headers });
+    assert.equal(real.json().participants, 1);
+    assert.equal(real.json().settings.testUniqueMessages, false);
+    assert.ok(
+      store.messages(s.id).every((m) => m.userId === "one-real-account"),
+    );
+  } finally {
+    await app.close();
+  }
+});

@@ -74,6 +74,7 @@ parentPort.on(
     reset = false,
     manual = [],
     generation = 0,
+    testUniqueMessages = false,
   }) => {
     if (clear) {
       resetEpoch++;
@@ -101,6 +102,7 @@ parentPort.on(
       clusters = [];
       index = 0;
     }
+    const identity = (m) => (testUniqueMessages ? m.id : m.userId);
     const valid = messages.filter((m) => !m.text.trim().startsWith("!"));
     const activeTexts = new Set(
       valid.map((m) => m.text.normalize("NFKC").toLowerCase().trim()),
@@ -175,7 +177,7 @@ parentPort.on(
     for (const c of clusters) {
       const people = new Map();
       for (const m of c.members)
-        if (!people.has(m.userId)) people.set(m.userId, m);
+        if (!people.has(identity(m))) people.set(identity(m), m);
       const center = new Map();
       for (const m of people.values()) {
         const v = vectorFor(m, [...new Set(tokens(m.text).map(canonical))]);
@@ -235,7 +237,7 @@ parentPort.on(
       best.members.push(m);
       const people = new Map();
       for (const mm of best.members)
-        if (!people.has(mm.userId)) people.set(mm.userId, mm);
+        if (!people.has(identity(mm))) people.set(identity(mm), mm);
       const centroid = new Map();
       for (const mm of people.values()) {
         const v = vectorFor(mm, [...new Set(tokens(mm.text).map(canonical))]);
@@ -245,10 +247,10 @@ parentPort.on(
       }
       best.centroid = centroid;
     }
-    const participants = new Set(messages.map((m) => m.userId)).size;
+    const participants = new Set(messages.map(identity)).size;
     const topics = clusters
       .map((c) => {
-        const people = new Set(c.members.map((m) => m.userId));
+        const people = new Set(c.members.map(identity));
         const counts = new Map();
         for (const m of c.members)
           for (const t of new Set(tokens(m.text).map(canonical)))
@@ -277,14 +279,14 @@ parentPort.on(
                     m.at >= now - 120000 + i * 10000 &&
                     m.at < now - 110000 + i * 10000,
                 )
-                .map((m) => m.userId),
+                .map(identity),
             ).size,
         );
         const recent = new Set(
-          c.members.filter((m) => m.at >= now - 60000).map((m) => m.userId),
+          c.members.filter((m) => m.at >= now - 60000).map(identity),
         ).size;
         const prev = new Set(
-          c.members.filter((m) => m.at < now - 60000).map((m) => m.userId),
+          c.members.filter((m) => m.at < now - 60000).map(identity),
         ).size;
         return {
           id: c.id,

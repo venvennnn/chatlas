@@ -37,6 +37,7 @@ export async function createApp(
   const settings = () => ({
     paused: store.setting("paused", false),
     showEvidence: store.setting("showEvidence", false),
+    testUniqueMessages: store.setting("testUniqueMessages", false),
     area: store.setting("area", "people"),
   });
   const snapshot = (role: "owner" | "overlay" = "owner"): Snapshot => {
@@ -70,7 +71,9 @@ export async function createApp(
         (role === "owner" ? decisions[0] : null) ??
         null,
       decisions: role === "owner" ? decisions : [],
-      participants: new Set(messages.map((m) => m.userId)).size,
+      participants: new Set(
+        messages.map((m) => (ts.testUniqueMessages ? m.id : m.userId)),
+      ).size,
       messageCount: messages.length,
       timeline: Array.from(
         { length: 24 },
@@ -448,10 +451,18 @@ export async function createApp(
       .object({
         paused: z.boolean().optional(),
         showEvidence: z.boolean().optional(),
+        testUniqueMessages: z.boolean().optional(),
         area: z.enum(["people", "messages"]).optional(),
       })
       .parse(req.body);
+    const changedIdentity =
+      b.testUniqueMessages !== undefined &&
+      b.testUniqueMessages !== store.setting("testUniqueMessages", false);
     for (const [k, v] of Object.entries(b)) store.set(k, v);
+    if (changedIdentity) {
+      analysis.reset();
+      refresh();
+    }
     store.audit(store.current()?.id ?? null, "settings.update");
     changed();
     return settings();

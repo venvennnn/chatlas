@@ -69,6 +69,8 @@ When weights are missing, the dashboard explicitly says **Limited semantic group
 
 Topic counts show messages and distinct contributors over 120 seconds. Repetition is `(messages − contributors) / messages`, not proven spam. Contributor share uses all distinct active participants; people can discuss multiple topics. Labels are constrained neutral defaults or explicitly owner-approved. Commands stay outside clustering. A topic normally needs three distinct contributors. Pin, rename, hide, merge, and evidence split are available in the inspector. Manual lineage is audited.
 
+For single-account rehearsals, Settings → Data & analysis → **Each message is a unique contributor** enables simulated contributor counting. Each message can then satisfy the topic-promotion threshold as a separate test contributor. The dashboard and OBS overlay label these counts as testing; original authors and account-based vote weighting are preserved. Turn it off to recompute the active window with real identities. It is off by default and its setting persists across restarts. Do not present simulated breadth as actual audience participation.
+
 Topic mentions are **not votes**. Approval votes count each Twitch account's latest complete valid ballot. Repeating a vote adds no weight; malformed commands change nothing. `!vote clear` removes the account from the denominator. Ties stay ties, and zero votes produce no winner. This is fairness per account, not proof of human uniqueness or audience representativeness.
 
 ## Replay and data
@@ -79,7 +81,7 @@ Raw messages expire after **24 hours**; active memberships expire after **120 se
 
 ## Validation and remaining acceptance
 
-Latest automated checks: **20 server tests and 5 browser tests passed**, plus production process/restart smoke, type checking, lint, and build. Clean lockfile installation was repeated successfully.
+Latest automated checks: **21 server tests and 6 browser tests passed**, plus production process/restart smoke, type checking, lint, and build. Clean lockfile installation was repeated successfully.
 
 Actual measurements are in [LOAD_RESULTS.json](docs/LOAD_RESULTS.json) and [EVALUATION_RESULTS.json](docs/EVALUATION_RESULTS.json). The latter is a tiny Codex-authored synthetic set, **not** the required independent human-labeled evaluation. No general accuracy, frame-rate, Twitch-latency, or audience-impact claims follow from it.
 

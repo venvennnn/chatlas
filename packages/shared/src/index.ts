@@ -79,6 +79,7 @@ export interface Snapshot {
   settings: {
     paused: boolean;
     showEvidence: boolean;
+    testUniqueMessages: boolean;
     area: "people" | "messages";
   };
   playback: { paused: boolean; speed: number; positionMs: number | null };

@@ -200,3 +200,33 @@ test("Studio atlas exposes remaining topics through the list view", async ({
       .getByRole("button", { name: "New decision", exact: true }),
   ).toBeVisible();
 });
+
+test("contributor testing toggle persists and shows a warning until disabled", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const toggle = page.getByRole("checkbox", {
+    name: /Each message is a unique contributor/,
+  });
+  if (await toggle.isChecked()) {
+    await page
+      .getByRole("button", { name: "Use real contributors", exact: true })
+      .click();
+    await expect(toggle).not.toBeChecked();
+  }
+  await toggle.check();
+  await expect(
+    page.getByText("TEST MODE — simulated contributors", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("TEST MODE — simulated contributors", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Use real contributors", exact: true })
+    .click();
+  await expect(
+    page.getByText("TEST MODE — simulated contributors", { exact: true }),
+  ).toHaveCount(0);
+});
