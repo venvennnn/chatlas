@@ -1,4 +1,13 @@
 import type { Snapshot } from "../../../packages/shared/src/index";
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 export async function api<T = any>(
   path: string,
   body?: unknown,
@@ -14,7 +23,7 @@ export async function api<T = any>(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error ?? "Request failed");
+  if (!r.ok) throw new ApiError(data.error ?? "Request failed", r.status);
   return data;
 }
 export function subscribe(

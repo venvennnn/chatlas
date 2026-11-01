@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import type { Snapshot, Decision } from "../../../packages/shared/src/index";
 import { voteHelp } from "../../../packages/shared/src/index";
-import { api, subscribe } from "./api";
+import { api, ApiError, subscribe } from "./api";
 import "./style.css";
 const colors = [
   "blue",
@@ -136,11 +136,12 @@ function App() {
         let s: Snapshot;
         try {
           s = await api("/snapshot");
-        } catch {
+        } catch (e) {
+          if (!(e instanceof ApiError) || e.status !== 401) throw e;
           await api("/demo/bootstrap", {});
           s = await api("/snapshot");
         }
-        if (!s.session && !s.sessions.length) {
+        if (!s.session && !s.sessions.length && !s.connection.channel) {
           await api("/sessions/start", { source: "demo" });
           s = await api("/snapshot");
         }
@@ -377,14 +378,16 @@ function App() {
                   className={`badge ${source === "live" ? "live" : "demo"}`}
                 >
                   <i />
-                  {source.toUpperCase()}
+                  {state.session ? source.toUpperCase() : "READY"}
                 </span>
                 <span className="session-state">
-                  {source === "live"
-                    ? state.connection.state
-                    : source === "replay"
-                      ? "Consented recording"
-                      : "Synthetic conversation"}
+                  {!state.session
+                    ? "Start a session to begin"
+                    : source === "live"
+                      ? state.connection.state
+                      : source === "replay"
+                        ? "Consented recording"
+                        : "Synthetic conversation"}
                 </span>
                 <div className="strip-spacer" />
                 {source !== "live" && state.session && (

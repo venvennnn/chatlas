@@ -78,6 +78,13 @@ try {
   assert.equal((await fetch(base + asset)).status, 200);
   const auth = await call("/demo/bootstrap", {});
   cookie = auth.headers.get("set-cookie")!.split(";")[0];
+  const empty = await (await call("/snapshot")).json();
+  assert.equal(empty.session, null);
+  assert.deepEqual(empty.playback, {
+    paused: false,
+    speed: 1,
+    positionMs: null,
+  });
   await call("/sessions/start", { source: "demo" });
   await call("/replay/control", { paused: true });
   const d = await (
@@ -103,6 +110,7 @@ try {
       "Railway public domain supplies the HTTPS application origin",
       "npm start serves built frontend and referenced asset",
       "health responds",
+      "authenticated empty-database snapshot before starting a session",
       "origin and cookie authenticated mutations",
       "approval vote persistence",
       "graceful process shutdown",

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../apps/server/src/app.ts";
 import { hash } from "../apps/server/src/store.ts";
+import { config } from "../apps/server/src/config.ts";
+import { encrypt } from "../apps/server/src/auth.ts";
 const origin = "http://localhost:5173";
 test("owner auth, CSRF, idempotency, overlay isolation and rotation", async () => {
   const { app } = await createApp(":memory:", {
@@ -335,5 +337,94 @@ test("unpublished decisions stay private and synthetic input cannot enter Replay
     assert.equal(bad.statusCode, 409);
   } finally {
     await app.close();
+  }
+});
+
+test("empty workspace returns a snapshot before any session or playback exists", async () => {
+  const { app } = await createApp(":memory:", {
+    background: false,
+    model: "lexical",
+  });
+  try {
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/demo/bootstrap",
+      headers: { origin, "x-chatlas-client": "dashboard" },
+      payload: {},
+    });
+    assert.equal(bootstrap.statusCode, 200);
+    const c = bootstrap.cookies.find((c) => c.name === "chatlas")!;
+    const snapshot = await app.inject({
+      url: "/api/snapshot",
+      headers: { cookie: "chatlas=" + c.value },
+    });
+    assert.equal(snapshot.statusCode, 200, snapshot.body);
+    assert.equal(snapshot.json().session, null);
+    assert.deepEqual(snapshot.json().sessions, []);
+    assert.deepEqual(snapshot.json().playback, {
+      paused: false,
+      speed: 1,
+      positionMs: null,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("authorized owner can load a workspace with no active session before and after ending one", async () => {
+  const previousKey = config.TOKEN_ENCRYPTION_KEY;
+  config.TOKEN_ENCRYPTION_KEY = "ab".repeat(32);
+  const { app, store } = await createApp(":memory:", {
+    background: false,
+    model: "lexical",
+  });
+  try {
+    store.set("ownerId", "test-owner");
+    store.run(
+      "INSERT INTO channel_connections VALUES(?,?,?)",
+      "test-owner",
+      "test-channel",
+      encrypt({
+        access_token: "synthetic-test-token",
+        refresh_token: "synthetic-refresh",
+        expiresAt: Date.now() + 3600000,
+      }),
+    );
+    store.run(
+      "INSERT INTO dashboard_sessions VALUES(?,?,?)",
+      hash("owner-test-session"),
+      Date.now() + 10000,
+      "owner",
+    );
+    const headers = {
+      origin,
+      "x-chatlas-client": "dashboard",
+      cookie: "chatlas=owner-test-session",
+    };
+    for (const ended of [false, true]) {
+      if (ended) {
+        store.start("live");
+        store.end();
+      }
+      const r = await app.inject({ url: "/api/snapshot", headers });
+      assert.equal(r.statusCode, 200, r.body);
+      assert.equal(r.json().session, null);
+      assert.equal(r.json().connection.channel, "test-channel");
+      assert.equal(r.json().playback.positionMs, null);
+    }
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/demo/bootstrap",
+          headers,
+          payload: {},
+        })
+      ).statusCode,
+      403,
+    );
+  } finally {
+    await app.close();
+    config.TOKEN_ENCRYPTION_KEY = previousKey;
   }
 });

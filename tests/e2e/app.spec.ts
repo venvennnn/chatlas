@@ -99,3 +99,84 @@ test("responsive list view and reduced motion remain usable", async ({
     ),
   ).toBe(true);
 });
+
+test("snapshot server errors remain visible instead of falling back to Demo sign-in", async ({
+  page,
+}) => {
+  let bootstrapCalls = 0;
+  await page.route("**/api/snapshot", (route) =>
+    route.fulfill({
+      status: 409,
+      json: { error: "Snapshot unavailable: regression fixture" },
+    }),
+  );
+  await page.route("**/api/demo/bootstrap", (route) => {
+    bootstrapCalls++;
+    return route.fulfill({
+      status: 403,
+      json: { error: "Misleading authorization fallback" },
+    });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toContainText(
+    "Snapshot unavailable: regression fixture",
+  );
+  expect(bootstrapCalls).toBe(0);
+});
+
+test("newly authorized owner sees Ready and can choose to start Live without auto-starting Demo", async ({
+  page,
+}) => {
+  let starts = 0,
+    bootstraps = 0;
+  await page.route("**/api/snapshot", (route) =>
+    route.fulfill({
+      json: {
+        schemaVersion: 1,
+        revision: 1,
+        session: null,
+        connection: {
+          state: "disconnected",
+          channel: "test-owner",
+          configured: true,
+        },
+        analysis: {
+          provider: "Lexical test fixture",
+          coverage: 1,
+          queue: 0,
+          windowSeconds: 120,
+        },
+        topics: [],
+        decision: null,
+        decisions: [],
+        participants: 0,
+        messageCount: 0,
+        timeline: Array(24).fill(0),
+        gaps: [],
+        settings: { paused: false, showEvidence: false, area: "people" },
+        playback: { paused: false, speed: 1, positionMs: null },
+        sessions: [],
+      },
+    }),
+  );
+  await page.route("**/api/sessions/start", (route) => {
+    starts++;
+    return route.fulfill({ json: {} });
+  });
+  await page.route("**/api/demo/bootstrap", (route) => {
+    bootstraps++;
+    return route.fulfill({
+      status: 403,
+      json: { error: "Not a Demo installation" },
+    });
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Start session", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("READY", { exact: true })).toBeVisible();
+  await expect(page.getByText("@test-owner", { exact: true })).toBeVisible();
+  expect(starts).toBe(0);
+  expect(bootstraps).toBe(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});

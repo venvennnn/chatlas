@@ -57,3 +57,11 @@ Codex authored the application, SQLite schema, worker/provider, voting rules, au
 - Docker builds keep TLS and package integrity verification enabled. An optional BuildKit CA secret supports the managed cloud proxy without placing that session certificate in image layers. Runtime secrets and databases are excluded from the build context, including nested copies.
 
 - Final local container smoke passed: mounted volume, application process UID 1000, generated-domain origin fallback, injected PORT 8080, frontend/API serving, authenticated voting, and closed-result/cookie recovery across container restart. Confirmed the image excludes local .env, .data, and model cache. See docs/RAILWAY_CONTAINER_SMOKE.json. Temporary test containers, volumes, and generated test secrets were removed. Actual Railway provisioning and external live acceptance remain pending.
+
+## Empty-workspace snapshot repair — 2026-11-01
+
+- The user supplied real hosted request logs: OAuth redirects completed, but authenticated `/api/snapshot` returned 409; the frontend then attempted Demo bootstrap and showed a misleading authorization error.
+- Reproduced the server bug with a fresh in-memory database: `Cannot read properties of null (reading 'paused')`. Comparing `p?.sessionId === session?.id` incorrectly succeeded when both were absent. Added explicit playback and session existence guards.
+- The API client now preserves HTTP status and attempts anonymous Demo bootstrap only after a 401, rather than masking arbitrary snapshot/server failures. Authorized owners without an active session see Ready and can explicitly start Live; no automatic Demo session is created for them.
+- Added API regressions for brand-new workspaces and an authorized owner with no current session, including after ending a session. Browser regressions verify server errors are preserved and authorized empty workspaces render Ready without bootstrap or automatic Demo.
+- Validation: 20 server tests and 4 browser tests passed; lint, types, and production build passed. The production smoke test now also checks the authenticated empty-database snapshot before creating a session. No secret changes, reauthorization, or data deletion are required by the code fix. The hosted Railway rollout itself still requires verification after redeploy.

@@ -83,7 +83,7 @@ export async function createApp(
       ),
       playback: (() => {
         const p = store.setting("playback", null);
-        return p?.sessionId === session?.id
+        return p && session && p.sessionId === session.id
           ? {
               paused: p.paused,
               speed: p.speed,
