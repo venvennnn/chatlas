@@ -201,3 +201,116 @@ test("language rules preserve disagreement rather than interpreting mentions as 
     questions: false,
   });
 });
+
+test("open-ended labels extract recurring subjects rather than relying on a topic whitelist", async () => {
+  const { inferTopicLabel } =
+    await import("../apps/server/src/topic-language.mjs");
+  const messages = [
+    "pewdiepie",
+    "long time pewdiepie has been on youtube",
+    "pewdiepie is doing what",
+    "what is pewdiepie doing",
+  ].map((text, i) => ({ text, id: String(i), userId: `u${i}` }));
+  assert.deepEqual(inferTopicLabel(messages), {
+    label: "Pewdiepie discussion",
+    source: "extracted",
+    approved: false,
+  });
+  const novel = [
+    "Asterforge crafting mechanics",
+    "Asterforge has new mechanics",
+    "Asterforge looks interesting",
+  ].map((text, i) => ({ text, userId: String(i) }));
+  assert.equal(inferTopicLabel(novel).label, "Asterforge discussion");
+  const phrase = [
+    "Elden Ring tonight",
+    "Please play Elden Ring",
+    "What about Elden Ring?",
+  ].map((text, i) => ({ text, userId: String(i) }));
+  assert.equal(inferTopicLabel(phrase).label, "Elden Ring discussion");
+  const noise = ["sunrise", "ocean", "garden"].map((text, i) => ({
+    text,
+    userId: String(i),
+  }));
+  assert.equal(inferTopicLabel(noise).source, "fallback");
+  assert.equal(
+    inferTopicLabel(messages.map((m) => ({ ...m, userId: "one" }))).source,
+    "fallback",
+  );
+  const known = [
+    "minecraft tonight",
+    "minecraft tonight again",
+    "please play minecraft tonight",
+  ].map((text, i) => ({ text, userId: String(i) }));
+  assert.equal(
+    inferTopicLabel(known, undefined, { minecraft: "Minecraft discussion" })
+      .approved,
+    true,
+  );
+});
+
+test("screenshot-style simulated chat gets an extracted label and remains private until approved", async () => {
+  const { app, store, analysis, snapshot } = await createApp(":memory:", {
+    background: false,
+    model: "lexical",
+  });
+  try {
+    const session = store.start("demo");
+    store.set("testUniqueMessages", true);
+    const now = Date.now();
+    const texts = [
+      "pewdiepie",
+      "long time pewdiepie has been on youtube",
+      "pewdiepie is doing what",
+      "what is pewdiepie doing",
+    ];
+    texts.forEach((text, i) =>
+      store.ingest(session.id, {
+        id: `screenshot-${i}`,
+        userId: "one-account",
+        name: "Tester",
+        text,
+        at: now - 1,
+        arrival: now,
+        emotes: [],
+      }),
+    );
+    analysis.update(session.id, store.messages(session.id, now), now);
+    for (let i = 0; i < 200 && analysis.busy; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    const topic = analysis.topics.find((t) => /pewdiepie/i.test(t.label));
+    assert.ok(topic);
+    assert.equal(topic.labelSource, "extracted");
+    assert.equal(topic.contributors, 4);
+    assert.equal(topic.approved, false);
+    assert.equal(snapshot("overlay").topics.length, 0);
+    const auth = await app.inject({
+      method: "POST",
+      url: "/api/demo/bootstrap",
+      headers: { origin, "x-chatlas-client": "dashboard" },
+      payload: {},
+    });
+    const cookie = auth.cookies.find((c) => c.name === "chatlas")!;
+    const headers = {
+      origin,
+      "x-chatlas-client": "dashboard",
+      cookie: `chatlas=${cookie.value}`,
+    };
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/api/topics/${topic.id}`,
+          headers,
+          payload: { label: topic.label },
+        })
+      ).statusCode,
+      200,
+    );
+    for (let i = 0; i < 200 && analysis.busy; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    assert.equal(snapshot("overlay").topics[0]?.label, "Pewdiepie discussion");
+  } finally {
+    await app.close();
+  }
+});

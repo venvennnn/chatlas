@@ -76,11 +76,13 @@ The worker tries cached `Xenova/all-MiniLM-L6-v2` q8 weights (384-dimensional, A
 
 When weights are missing, the dashboard explicitly says **Limited semantic grouping · lexical TF-IDF**. The cloud model download was blocked; cached-model inference has not been validated here. Use `EMBEDDING_MODEL=lexical` to deliberately select the fallback. Restart after downloading weights. Semantic assignment uses the specification's **0.72 experimental threshold**; lexical assignment uses a separate heuristic. Neither is a validated universal threshold. English is the supported default; no sarcasm or sentiment inference is claimed.
 
+Open-ended labels now use recurring words or short phrases across distinct contributors, so subjects outside the built-in categories no longer automatically become “Other discussion.” These are extractive labels, not generated semantic summaries; sparse or ambiguous messages can still use the fallback. Extracted labels stay private until the owner selects **Approve label for overlay** or renames them. Cached embeddings improve grouping, but do not supply a generative labeler.
+
 Topic counts show messages and distinct contributors over 120 seconds. Repetition is `(messages − contributors) / messages`, not proven spam. Contributor share uses all distinct active participants; people can discuss multiple topics. Labels are constrained neutral defaults or explicitly owner-approved. Commands stay outside clustering. A topic normally needs three distinct contributors. Pin, rename, hide, merge, and evidence split are available in the inspector. Manual lineage is audited.
 
-For single-account rehearsals, Settings → Data & analysis → **Each message is a unique contributor** enables simulated contributor counting. Each message can then satisfy the topic-promotion threshold as a separate test contributor. The dashboard and OBS overlay label these counts as testing; original authors and account-based vote weighting are preserved. Turn it off to recompute the active window with real identities. It is off by default and its setting persists across restarts. Do not present simulated breadth as actual audience participation.
+For single-account rehearsals, Settings → Data & analysis → **Each message is a unique contributor** enables simulated contributor counting. Each message can then satisfy the topic-promotion threshold as a separate test contributor. The dashboard and OBS overlay label these counts as testing. Every valid vote message also counts as a separate simulated voter, even from the same account; original authors remain stored for moderation. `!vote clear` removes that account’s preceding test ballots. Turning test mode off recomputes open votes using each account’s latest ballot. Closed results retain the counting mode and totals they had when closed. It is off by default and its setting persists across restarts. Do not present simulated breadth as actual audience participation.
 
-Topic mentions are **not votes**. Approval votes count each Twitch account's latest complete valid ballot. Repeating a vote adds no weight; malformed commands change nothing. `!vote clear` removes the account from the denominator. Ties stay ties, and zero votes produce no winner. This is fairness per account, not proof of human uniqueness or audience representativeness.
+Topic mentions are **not votes**. Outside test mode, approval votes count each Twitch account's latest complete valid ballot. Repeating a vote adds no weight; malformed commands change nothing. `!vote clear` removes the account from the denominator. Ties stay ties, and zero votes produce no winner. This is fairness per account, not proof of human uniqueness or audience representativeness.
 
 ## Replay and data
 
@@ -90,7 +92,7 @@ Raw messages expire after **24 hours**; active memberships expire after **120 se
 
 ## Validation and remaining acceptance
 
-Latest feature validation: all four server test files and **11 browser acceptance tests passed**, plus type checking, lint, and build. The new evidence, recap persistence, style presets, and draft-vote flows have automated coverage. Earlier production/restart smoke results remain documented separately.
+Latest feature validation: all four server test files and **13 browser acceptance tests passed**, plus type checking, lint, and build. The new evidence, recap persistence, style presets, and draft-vote flows have automated coverage. Earlier production/restart smoke results remain documented separately.
 
 Actual measurements are in [LOAD_RESULTS.json](docs/LOAD_RESULTS.json) and [EVALUATION_RESULTS.json](docs/EVALUATION_RESULTS.json). The latter is a tiny Codex-authored synthetic set, **not** the required independent human-labeled evaluation. No general accuracy, frame-rate, Twitch-latency, or audience-impact claims follow from it.
 

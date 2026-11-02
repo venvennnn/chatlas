@@ -552,3 +552,122 @@ test("overlay presets persist and session reports export without raw chat", asyn
   ]);
   expect(download.suggestedFilename()).toMatch(/^chatlas-recap-.*\.html$/);
 });
+
+test("recurring subjects outside the whitelist get extracted labels and explicit overlay approval", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".topic-chart-card").first()).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const toggle = page.getByRole("checkbox", {
+    name: /Each message is a unique contributor/,
+  });
+  await toggle.check();
+  await page.getByRole("button", { name: "Live room", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Demo participant" })
+    .fill("label-repro");
+  for (const text of [
+    "pewdiepie",
+    "long time pewdiepie has been on youtube",
+    "pewdiepie is doing what",
+    "what is pewdiepie doing",
+  ]) {
+    await page.getByRole("textbox", { name: "Demo chat message" }).fill(text);
+    await page.getByRole("button", { name: "Send demo message" }).click();
+  }
+  await page.getByRole("button", { name: "List view", exact: true }).click();
+  await page.getByPlaceholder("Find a topic…").fill("pewdiepie");
+  const row = page
+    .locator(".topic-row")
+    .filter({ hasText: "Pewdiepie discussion" });
+  await expect(row).toHaveCount(1);
+  await row.click();
+  await expect(
+    page.getByRole("button", { name: "Approve label for overlay" }),
+  ).toBeVisible();
+  const before = await (await page.request.get("/api/snapshot")).json();
+  expect(
+    before.topics.find((topic: any) => topic.label === "Pewdiepie discussion")
+      .approved,
+  ).toBe(false);
+  await page.getByRole("button", { name: "Approve label for overlay" }).click();
+  await expect
+    .poll(async () => {
+      const snapshot = await (await page.request.get("/api/snapshot")).json();
+      return snapshot.topics.find(
+        (topic: any) => topic.label === "Pewdiepie discussion",
+      )?.approved;
+    })
+    .toBe(true);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toggle.uncheck();
+});
+
+test("unique-message mode counts repeated vote messages and labels frozen test results", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".topic-chart-card").first()).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const toggle = page.getByRole("checkbox", {
+    name: /Each message is a unique contributor/,
+  });
+  await toggle.check();
+  await page.getByRole("button", { name: "Live room", exact: true }).click();
+  await page.getByRole("button", { name: "New decision", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "each valid vote message counts as a separate simulated voter",
+  );
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Publish vote" })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Demo participant" })
+    .fill("same-test-account");
+  for (const text of ["!vote 1", "!vote 1", "!vote 2"]) {
+    await page.getByRole("textbox", { name: "Demo chat message" }).fill(text);
+    await page.getByRole("button", { name: "Send demo message" }).click();
+  }
+  await expect(
+    page.getByText(
+      "3 simulated voters · percentages may total more than 100%",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Use real contributors", exact: true })
+    .click();
+  await expect(
+    page.getByText("1 valid voters · percentages may total more than 100%", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toggle.check();
+  await page.getByRole("button", { name: "Live room", exact: true }).click();
+  await expect(
+    page.getByText(
+      "3 simulated voters · percentages may total more than 100%",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Close & show results", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Use real contributors", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "3 simulated voters · percentages may total more than 100%",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.reload();
+  const snapshot = await (await page.request.get("/api/snapshot")).json();
+  expect(snapshot.decision.countingMode).toBe("message");
+  expect(snapshot.decision.voters).toBe(3);
+  expect(snapshot.decision.counts).toEqual([2, 1, 0]);
+});

@@ -159,3 +159,64 @@ test("raw retention expires messages but preserves vote revisions", () => {
   assert.equal(store.decision(d.id).voters, 1);
   store.db.close();
 });
+
+test("test contributor mode counts vote messages, preserves real authors and freezes closed results", () => {
+  const { store, s, d } = setup();
+  try {
+    vote(store, s.id, "test-a", "!vote 1", 2000);
+    vote(store, s.id, "test-b", "!vote 1", 2100);
+    vote(store, s.id, "test-c", "!vote 2", 2200);
+    assert.deepEqual(store.result(d.id).counts, [0, 1, 0]);
+    assert.equal(store.result(d.id).voters, 1);
+    store.set("testUniqueMessages", true);
+    assert.deepEqual(store.result(d.id).counts, [2, 1, 0]);
+    assert.equal(store.result(d.id).voters, 3);
+    assert.equal(store.decision(d.id).countingMode, "message");
+    assert.equal(vote(store, s.id, "test-c", "!vote 2", 2200), false);
+    assert.equal(store.result(d.id).voters, 3);
+    vote(store, s.id, "test-bad", "!vote 4", 2300);
+    assert.equal(store.result(d.id).voters, 3);
+    vote(store, s.id, "test-other", "!vote 3", 2400, "u2");
+    assert.equal(store.result(d.id).voters, 4);
+    store.moderate(s.id, { messageId: "test-b" });
+    assert.equal(store.result(d.id).voters, 3);
+    assert.deepEqual(store.result(d.id).counts, [1, 1, 1]);
+    vote(store, s.id, "test-clear", "!vote clear", 2500);
+    assert.equal(store.result(d.id).voters, 1);
+    assert.deepEqual(store.result(d.id).counts, [0, 0, 1]);
+    vote(store, s.id, "test-new", "!vote 1 3", 2600);
+    assert.equal(store.result(d.id).voters, 2);
+    store.set("testUniqueMessages", false);
+    assert.equal(store.decision(d.id).countingMode, "account");
+    assert.equal(store.result(d.id).voters, 2);
+    store.set("testUniqueMessages", true);
+    const closed = store.close(d.id, false, 3000);
+    assert.equal(closed.countingMode, "message");
+    store.set("testUniqueMessages", false);
+    assert.equal(store.decision(d.id).countingMode, "message");
+    assert.deepEqual(store.decision(d.id).counts, closed.counts);
+    assert.equal(store.result(d.id).countingMode, "message");
+    assert.ok(
+      store
+        .all("SELECT user_id FROM vote_revisions")
+        .every((row) => ["u1", "u2"].includes(row.user_id)),
+    );
+  } finally {
+    store.db.close();
+  }
+});
+
+test("closed account-based results stay account-based after enabling test mode", () => {
+  const { store, s, d } = setup();
+  try {
+    vote(store, s.id, "normal-a", "!vote 1", 2000);
+    vote(store, s.id, "normal-b", "!vote 2", 2100);
+    store.close(d.id, false, 3000);
+    store.set("testUniqueMessages", true);
+    assert.equal(store.decision(d.id).countingMode, "account");
+    assert.equal(store.decision(d.id).voters, 1);
+    assert.deepEqual(store.result(d.id).counts, [0, 1, 0]);
+  } finally {
+    store.db.close();
+  }
+});

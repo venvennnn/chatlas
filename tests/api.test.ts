@@ -450,7 +450,7 @@ test("authorized owner can load a workspace with no active session before and af
   }
 });
 
-test("unique-message contributor testing is reversible, labeled and never changes real identities or vote weight", async () => {
+test("unique-message testing changes topic and open-vote counts reversibly without rewriting authors", async () => {
   const { app, store, analysis } = await createApp(":memory:", {
     background: false,
     model: "lexical",
@@ -545,8 +545,9 @@ test("unique-message contributor testing is reversible, labeled and never change
         arrival: now + i,
         emotes: [],
       });
-    assert.equal(store.result(d.id).voters, 1);
-    assert.deepEqual(store.result(d.id).counts, [0, 1]);
+    assert.equal(store.result(d.id).voters, 2);
+    assert.deepEqual(store.result(d.id).counts, [1, 1]);
+    assert.equal(store.decision(d.id).countingMode, "message");
     await app.inject({
       method: "PATCH",
       url: "/api/settings",
@@ -558,6 +559,9 @@ test("unique-message contributor testing is reversible, labeled and never change
     const real = await app.inject({ url: "/api/snapshot", headers });
     assert.equal(real.json().participants, 1);
     assert.equal(real.json().settings.testUniqueMessages, false);
+    assert.equal(store.decision(d.id).voters, 1);
+    assert.deepEqual(store.decision(d.id).counts, [0, 1]);
+    assert.equal(store.decision(d.id).countingMode, "account");
     assert.ok(
       store.messages(s.id).every((m) => m.userId === "one-real-account"),
     );

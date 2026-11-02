@@ -67,6 +67,7 @@ export interface SessionRecap {
 export interface Topic {
   id: string;
   label: string;
+  labelSource?: "recognized" | "extracted" | "fallback";
   approved: boolean;
   pinned: boolean;
   hidden: boolean;
@@ -85,6 +86,7 @@ export interface Topic {
   y: number;
 }
 export interface Decision {
+  countingMode?: "account" | "message";
   id: string;
   sessionId: string;
   question: string;
@@ -158,3 +160,6 @@ export function parseVote(text: string, count: number): number[] | null {
 export function normalize(text: string) {
   return text.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 }
+
+export const testVoteHelp =
+  "TEST MODE: each valid vote message is a simulated voter · !vote clear removes this account’s test ballots";

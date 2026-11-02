@@ -55,6 +55,7 @@ import type {
 } from "../../../packages/shared/src/index";
 import {
   voteHelp,
+  testVoteHelp,
   defaultOverlayPreferences,
 } from "../../../packages/shared/src/index";
 import { api, ApiError, subscribe } from "./api";
@@ -618,8 +619,8 @@ function App() {
                 <Sparkles size={18} />
                 <span>
                   <strong>TEST MODE — simulated contributors</strong>Every
-                  message counts as a different contributor for topics. Voting
-                  still counts real Twitch accounts.
+                  message counts as a different contributor for topics. Each
+                  valid vote message counts as a separate simulated voter.
                 </span>
                 <button
                   className="button small-button"
@@ -975,6 +976,33 @@ function App() {
                               <MessageCircle size={23} />
                             </div>
                             <h2>{topic.label}</h2>
+                            {!topic.approved &&
+                              topic.labelSource === "extracted" && (
+                                <div className="extracted-label-note">
+                                  <p>
+                                    Label extracted from recurring words, not a
+                                    semantic summary. Review before showing it
+                                    on stream.
+                                  </p>
+                                  <button
+                                    className="button small-button"
+                                    onClick={() =>
+                                      void act(
+                                        () =>
+                                          api(
+                                            "/topics/" + topic.id,
+                                            { label: topic.label },
+                                            "PATCH",
+                                          ),
+                                        "Topic label approved for the overlay",
+                                      )
+                                    }
+                                  >
+                                    Approve label for overlay
+                                  </button>
+                                </div>
+                              )}
+
                             <p className="inspector-sub">
                               A thread in the last two minutes. Explore the
                               messages behind it.
@@ -1307,7 +1335,7 @@ function App() {
                       <span>
                         <ShieldCheck size={14} />
                         Participating chatters, not all viewers. Every account
-                        has equal vote weight.
+                        has equal vote weight outside test mode.
                       </span>
                       <button onClick={() => setTab("Settings")}>
                         Set up your overlay
@@ -1712,8 +1740,8 @@ function App() {
                           <strong>Each message is a unique contributor</strong>
                           <small>
                             Testing only. OFF: count real accounts. ON: simulate
-                            a new contributor per message so one account can
-                            form topics.
+                            a new contributor per message and a separate
+                            simulated voter per valid vote message.
                           </small>
                         </span>
                         <input
@@ -1738,8 +1766,12 @@ function App() {
                       </label>
                       <p className="settings-note">
                         Test counts are labeled on the dashboard and OBS
-                        overlay. Original message authors and voting weight are
-                        preserved. Turn this off for real audience measurements.
+                        overlay. Original authors are preserved. In test mode,
+                        repeated valid vote messages add simulated voters; !vote
+                        clear removes that account’s test ballots. Turning this
+                        off recomputes open votes using each account’s latest
+                        ballot. Closed results keep their original counting
+                        mode. Turn this off for real audience measurements.
                       </p>
                       <div className="setting-value">
                         <span>Analysis</span>
@@ -1881,6 +1913,7 @@ function App() {
           draft={draftTopic}
         />
         <Composer
+          testMode={Boolean(state?.settings.testUniqueMessages)}
           seed={voteSeed}
           open={composer}
           onOpenChange={(open) => {
@@ -1930,6 +1963,7 @@ function DecisionCard({
   decision: Decision;
   act: (fn: () => Promise<unknown>, success?: string) => Promise<void>;
 }) {
+  const simulated = d.countingMode === "message";
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -1945,6 +1979,12 @@ function DecisionCard({
             {d.state.toUpperCase()}
           </span>
           <h2>{d.question}</h2>
+          {simulated && (
+            <p className="decision-test-note">
+              TEST VOTE · each valid message is a simulated voter. These counts
+              are not unique people.
+            </p>
+          )}
           <p>
             {d.state === "open"
               ? "Approve every option you would be happy with."
@@ -1963,7 +2003,13 @@ function DecisionCard({
               ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`
               : d.voters}
           </strong>
-          <span>{d.state === "open" ? "remaining" : "valid voters"}</span>
+          <span>
+            {d.state === "open"
+              ? "remaining"
+              : simulated
+                ? "simulated voters"
+                : "valid voters"}
+          </span>
         </div>
       </div>
       <div className="result-options">
@@ -1999,9 +2045,10 @@ function DecisionCard({
         ))}
       </div>
       <div className="vote-command">
-        <code>{voteHelp}</code>
+        <code>{simulated ? testVoteHelp : voteHelp}</code>
         <span>
-          {d.voters} valid voters · percentages may total more than 100%
+          {d.voters} {simulated ? "simulated voters" : "valid voters"} ·
+          percentages may total more than 100%
         </span>
       </div>
       {d.state === "open" && (
@@ -2042,6 +2089,7 @@ function DecisionCard({
   );
 }
 function Composer({
+  testMode = false,
   seed,
   open,
   onOpenChange,
@@ -2052,6 +2100,7 @@ function Composer({
   onOpenChange: (v: boolean) => void;
   candidates: string[];
   seed?: { question: string; options: string[] } | null;
+  testMode?: boolean;
   onSubmit: (q: string, o: string[], d: number) => Promise<void>;
 }) {
   const [q, setQ] = useState("What should we play next?"),
@@ -2097,8 +2146,9 @@ function Composer({
           <Dialog.Description>
             {seed &&
               "Drafted from recognized mentions, not endorsements. Review the question and options before publishing. "}
-            One account, one current ballot. Approve as many options as you
-            like. No extra accounts or extensions.
+            {testMode
+              ? "TEST MODE: each valid vote message counts as a separate simulated voter, even from the same account."
+              : "One account, one current ballot. Approve as many options as you like. No extra accounts or extensions."}
           </Dialog.Description>
           <form
             onSubmit={(e) => {
@@ -2177,8 +2227,9 @@ function Composer({
               <span>CHAT WILL USE</span>
               <code>!vote 1 3</code>
               <p>
-                Repeated messages don't add weight. A new vote replaces the
-                previous ballot.
+                {testMode
+                  ? "Repeated valid vote messages add test voters. !vote clear removes all prior test ballots from that account."
+                  : "Repeated messages don't add weight. A new vote replaces the previous ballot."}
               </p>
             </div>
             <div className="dialog-actions">
@@ -2291,7 +2342,9 @@ function OverlayPanel({
             The conversation, at a glance
           </h2>
         )}
-        {state.settings.testUniqueMessages && (
+        {(isTopics
+          ? state.settings.testUniqueMessages
+          : d?.countingMode === "message") && (
           <span className="test-counts-label">TEST COUNTS</span>
         )}
         <span>
@@ -2349,12 +2402,14 @@ function OverlayPanel({
               {stale
                 ? "Connection lost. Voting status unavailable."
                 : d.state === "open" && layout === "voting"
-                  ? "Approve your favorites: !vote 1 3"
+                  ? d.countingMode === "message"
+                    ? "TEST VOTE · each message adds a simulated voter: !vote 1 3"
+                    : "Approve your favorites: !vote 1 3"
                   : d.state === "cancelled"
                     ? "Vote cancelled"
                     : d.voters === 0
                       ? "No votes. No winner."
-                      : `${d.voters} valid voters · ${d.winners.length > 1 ? "Tie" : "Approval results"}`}
+                      : `${d.voters} ${d.countingMode === "message" ? "simulated voters" : "valid voters"} · ${d.winners.length > 1 ? "Tie" : "Approval results"}`}
             </p>
           </>
         ) : (

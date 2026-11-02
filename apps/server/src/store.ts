@@ -199,14 +199,28 @@ export class Store {
     return this.decision(id);
   }
   result(id: string) {
-    const d = this.get("SELECT options FROM decisions WHERE id=?", id);
+    const d = this.get("SELECT options,result FROM decisions WHERE id=?", id);
     if (!d) throw new Error("Decision not found");
+    if (d.result) return JSON.parse(d.result);
+    const simulated = this.setting("testUniqueMessages", false);
     const ballots = new Map<string, number[]>();
+    const authors = new Map<string, string>();
     for (const r of this.all(
       "SELECT * FROM vote_revisions WHERE decision_id=? AND deleted=0 ORDER BY source_at,arrival_seq,message_id",
       id,
-    ))
-      ballots.set(r.user_id, JSON.parse(r.choices));
+    )) {
+      const choices: number[] = JSON.parse(r.choices);
+      if (!simulated) ballots.set(r.user_id, choices);
+      else if (choices.length) {
+        ballots.set(r.message_id, choices);
+        authors.set(r.message_id, r.user_id);
+      } else
+        for (const [messageId, author] of authors)
+          if (author === r.user_id) {
+            ballots.delete(messageId);
+            authors.delete(messageId);
+          }
+    }
     const counts = Array(JSON.parse(d.options).length).fill(0);
     let voters = 0;
     for (const choices of ballots.values()) {
@@ -217,6 +231,7 @@ export class Store {
     return {
       counts,
       voters,
+      ...(simulated ? { countingMode: "message" as const } : {}),
       winners: max > 0 ? counts.flatMap((n, i) => (n === max ? [i] : [])) : [],
     };
   }
@@ -233,6 +248,11 @@ export class Store {
       openedAt: d.opened_at,
       deadline: d.deadline,
       createdAt: d.created_at,
+      countingMode: d.result
+        ? (JSON.parse(d.result).countingMode ?? "account")
+        : this.setting("testUniqueMessages", false)
+          ? "message"
+          : "account",
       ...(d.result ? JSON.parse(d.result) : this.result(id)),
     };
   }

@@ -1,4 +1,4 @@
-import { synonyms, intentOf } from "./topic-language.mjs";
+import { synonyms, intentOf, inferTopicLabel } from "./topic-language.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 import { createHash } from "node:crypto";
 const stop = new Set(
@@ -276,12 +276,6 @@ parentPort.on(
     const topics = clusters
       .map((c) => {
         const people = new Set(c.members.map(identity));
-        const counts = new Map();
-        for (const m of c.members)
-          for (const t of new Set(tokens(m.text).map(canonical)))
-            counts.set(t, (counts.get(t) ?? 0) + 1);
-        const word =
-          [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "conversation";
         const safe = {
           minecraft: "Minecraft discussion",
           valorant: "Valorant discussion",
@@ -293,7 +287,10 @@ parentPort.on(
           horror: "Horror games",
           stardew: "Stardew Valley discussion",
         };
-        const label = c.key ? "Emote wave" : (safe[word] ?? "Other discussion");
+        const inferred = c.key
+          ? { label: "Emote wave", source: "recognized", approved: true }
+          : inferTopicLabel(c.members, identity, safe);
+        const label = inferred.label;
         const mentions = new Map();
         for (const message of c.members) {
           const labels = new Set(
@@ -339,7 +336,8 @@ parentPort.on(
         return {
           id: c.id,
           label,
-          approved: Boolean(safe[word] || c.key),
+          approved: inferred.approved,
+          labelSource: inferred.source,
           pinned: false,
           hidden: false,
           messages: c.members.length,

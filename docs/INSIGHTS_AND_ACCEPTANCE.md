@@ -6,7 +6,9 @@ The Live room shows changes between consecutive 60-second periods. Changes requi
 
 Click or keyboard-activate any ten-second point in the top-four charts to open its private evidence. The selected window is frozen while charts continue updating. The server retains approximately 60 seconds of window references; older requests return an expiration message. Deleted messages disappear from evidence. A bucket returns at most 100 messages with its actual total and contributor count; this is not a full-history export.
 
-Choose **Create vote draft** on a chart, **Draft vote** on an insight, or the inspector's decision button. Recognized topic mentions seed editable options. Review question/options; publishing remains an explicit action. Language-pattern counts use conservative English lexical rules for suggestion, disagreement, and question markers. They are not sentiment analysis and may overlap.
+Choose **Create vote draft** on a chart, **Draft vote** on an insight, or the inspector's decision button. Recognized topic mentions seed editable options. Review question/options; publishing remains an explicit action. With **Each message is a unique contributor** enabled, every valid vote message is a simulated voter. Repeated messages count separately; duplicate deliveries of the same message do not. `!vote clear` removes that account’s preceding test ballots. Disabling the option recomputes open decisions per account, while closed decisions retain their counting mode and frozen totals. Keep test mode off for real audience votes.
+
+Extracted topic labels name recurring subjects, including new entities and multiword phrases. They require repeated contributor support and are not semantic summaries. Unknown subjects remain private until the owner explicitly approves the label for the overlay; generic fallback labels are retained when evidence is too sparse. Language-pattern counts use conservative English lexical rules for suggestion, disagreement, and question markers. They are not sentiment analysis and may overlap.
 
 ## Overlay customization
 

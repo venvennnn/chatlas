@@ -277,3 +277,19 @@
 .overlay-style-controls input[type="checkbox"] {
   accent-color: #a16bd2;
 }
+.extracted-label-note {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #eddef8;
+  border-radius: 12px;
+  background: #fbf6ff;
+}
+.extracted-label-note p {
+  font-size: 10px;
+  line-height: 1.6;
+  color: #a283b4;
+  margin-bottom: 8px;
+}
+.extracted-label-note .button {
+  font-size: 10px;
+}
