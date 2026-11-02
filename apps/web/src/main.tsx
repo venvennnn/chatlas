@@ -127,13 +127,14 @@ function IslandArt({ seed, count }: { seed: number; count: number }) {
           opacity={1 - i * 0.14}
         />
       ))}
-      {Array.from({ length: Math.min(count, 18) }, (_, i) => {
-        const a = (i / Math.min(count, 18)) * Math.PI * 2 + seed;
+      {Array.from({ length: Math.min(count * 8, 240) }, (_, i) => {
+        const a = i * 2.399963 + seed;
+        const radius = Math.sqrt((i + 0.5) / Math.min(count * 8, 240)) * 37;
         return (
           <circle
             key={i}
-            cx={50 + Math.cos(a) * 34}
-            cy={50 + Math.sin(a) * 34}
+            cx={50 + Math.cos(a) * radius}
+            cy={50 + Math.sin(a) * radius}
             r="1.2"
           />
         );
@@ -1998,7 +1999,18 @@ function OverlayPanel({
               {d.options.map((o, i) => (
                 <div key={i}>
                   <span>{i + 1}</span>
-                  <strong>{o}</strong>
+                  <strong>
+                    {o}
+                    <span className="broadcast-approval-track">
+                      <i
+                        style={{
+                          width:
+                            (d.voters ? (d.counts[i] / d.voters) * 100 : 0) +
+                            "%",
+                        }}
+                      />
+                    </span>
+                  </strong>
                   <b>{d.counts[i]}</b>
                 </div>
               ))}

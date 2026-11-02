@@ -81,3 +81,9 @@ Codex authored the application, SQLite schema, worker/provider, voting rules, au
 - Switching identity modes resets worker generations and recomputes the active window. The dashboard displays a persistent simulated-contributors banner and a one-click return to real counting; the OBS panel displays TEST COUNTS. Do not present this mode as real audience breadth.
 - API regression verified that three related messages from one real account form a 3-contributor test topic, switching off removes it, real author IDs remain unchanged, overlay settings disclose the mode, and replacement votes still produce one voter. Browser regression verifies the checkbox, persistence after reload, warning visibility, and disabling. Fixed pending checkbox response and sticky-banner/inspector overlap found during browser testing.
 - Validation: 21 server tests and 6 browser tests passed. Lint, type checks, and production build passed. Hosted rollout remains pending until Railway deploys the new commit.
+
+## Editorial cream/burgundy design — 2026-11-02
+
+- Adapted the supplied references into a warm paper-and-burgundy theme, serif headings, desktop horizontal navigation, dense decorative point fields within topic contours, and restrained evidence panels. Point positions are decorative density texture, not individual participant coordinates; explicit numeric counts remain authoritative.
+- Restyled OBS Pulse as a white compact panel and voting/results as a broad white strip. Preserved transparent backgrounds, role restrictions, test-count labels, actual deadlines, and real account-based votes. No sample game footage or invented chart metrics were added to the running overlay.
+- Validation: all 6 browser acceptance tests passed after the final header adjustment; build/type checking and lint passed. White voting panels now include approval bars computed from the actual voter denominator. Server voting and ingestion code were unchanged.
