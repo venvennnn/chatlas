@@ -52,6 +52,7 @@ import { voteHelp } from "../../../packages/shared/src/index";
 import { api, ApiError, subscribe } from "./api";
 import "./style.css";
 import "./studio.css";
+import "./sky.css";
 const colors = [
   "blue",
   "peach",
@@ -492,6 +493,34 @@ function App() {
             </div>
           ) : (
             <>
+              {tab === "Live room" && (
+                <section
+                  className="sky-welcome"
+                  aria-label="Welcome to Chatlas"
+                >
+                  <div>
+                    <span className="sky-kicker">
+                      <Sparkles size={14} /> A LITTLE CLARITY. A LOT OF
+                      COMMUNITY.
+                    </span>
+                    <h2>
+                      Your chat <em>has a voice.</em>
+                    </h2>
+                    <p>Find the conversation. Make the next move together.</p>
+                  </div>
+                  <div className="sky-welcome-art" aria-hidden="true">
+                    <span>
+                      <MessageCircle size={19} /> Find your people
+                    </span>
+                    <span>
+                      <AudioLines size={19} /> Follow the conversation
+                    </span>
+                    <span>
+                      <Vote size={19} /> Let chat decide <Sparkles size={13} />
+                    </span>
+                  </div>
+                </section>
+              )}
               <section className="session-strip" aria-label="Session status">
                 <div className="channel-icon">
                   <AudioLines size={20} />
@@ -1975,7 +2004,7 @@ function OverlayPanel({
     .slice(0, layout === "atlas" ? 8 : 3);
   return (
     <div
-      className={`broadcast-panel ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""}`}
+      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""}`}
     >
       <div className="broadcast-heading">
         <Brand />
@@ -1994,10 +2023,27 @@ function OverlayPanel({
       ) : layout === "voting" || layout === "results" ? (
         d ? (
           <>
+            <div
+              className={`broadcast-state ${d.state === "open" ? "is-open" : ""}`}
+            >
+              <span />
+              {d.state === "open"
+                ? "VOTE OPEN"
+                : d.state === "closed"
+                  ? "VOTE CLOSED"
+                  : d.state.toUpperCase()}
+            </div>
             <h2>{d.question}</h2>
             <div className="broadcast-votes">
               {d.options.map((o, i) => (
-                <div key={i}>
+                <div
+                  key={i}
+                  className={
+                    d.state === "closed" && d.winners.includes(i)
+                      ? "broadcast-winner"
+                      : ""
+                  }
+                >
                   <span>{i + 1}</span>
                   <strong>
                     {o}
@@ -2035,9 +2081,11 @@ function OverlayPanel({
           <h2>What's chat talking about?</h2>
           {topics.length ? (
             <div className="broadcast-topics">
-              {topics.map((t, i) => (
+              {topics.map((t) => (
                 <div key={t.id}>
-                  <i className={colors[i]} />
+                  <span className="broadcast-topic-glyph">
+                    <TopicGlyph label={t.label} />
+                  </span>
                   <strong>{t.label}</strong>
                   <span>{t.contributors} people</span>
                 </div>
