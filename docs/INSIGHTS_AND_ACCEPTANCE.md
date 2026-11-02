@@ -14,6 +14,8 @@ Extracted topic labels name recurring subjects, including new entities and multi
 
 In Overlay, choose Cozy studio, Gameplay safe, or Minimal. Adjust size, card opacity, character visibility, 1–4 topics, and safe margin. Preview changes stay local until **Apply overlay style**. Saved settings persist across restarts and reach existing read-only sources on the next snapshot. Size and margin apply to the OBS source; the in-app preview fits its own container.
 
+The Compact overlay and its in-app preview now render one fixed design canvas, scaled uniformly to fit. A narrow OBS source keeps the same three-column composition instead of switching to a phone layout. Empty slots show waiting states; Chatlas never invents topics or counts. **Use reference design** restores the reference preset and selects Compact. Existing OBS sources must use the Compact layout URL for this composition. Extracted topic labels require explicit approval before appearing publicly.
+
 ## Session recaps
 
 In Session history, open **View recap & decisions**. Recaps retain aggregate samples every 15 seconds while analysis runs, up to 2400 samples per session. Samples contain topic labels/counts, window participation, coverage, and whether contributor counting was simulated. No raw text or usernames are copied into samples. Deleting a session cascades its samples.

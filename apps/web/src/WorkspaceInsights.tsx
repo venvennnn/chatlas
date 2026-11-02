@@ -280,10 +280,12 @@ export function OverlayStyleControls({
   value,
   save,
   preview,
+  onReference,
 }: {
   value?: OverlayPreferences;
   save: (value: OverlayPreferences) => Promise<void>;
   preview: (value: OverlayPreferences) => void;
+  onReference?: () => void;
 }) {
   const [draft, setDraft] = useState(value ?? defaultOverlayPreferences);
   const [saving, setSaving] = useState(false);
@@ -301,6 +303,28 @@ export function OverlayStyleControls({
   return (
     <div className="overlay-style-controls">
       <h3>Make it fit your stream</h3>
+      <button
+        className="button primary reference-design-button"
+        disabled={saving}
+        onClick={async () => {
+          setSaving(true);
+          setError("");
+          const next = presets.cozy;
+          setDraft(next);
+          preview(next);
+          onReference?.();
+          try {
+            await save(next);
+          } catch (e) {
+            setError((e as Error).message);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        Use reference design
+      </button>
+
       <label>
         Layout preset
         <select

@@ -1646,6 +1646,7 @@ function App() {
                       <OverlayStyleControls
                         value={state.settings.overlay}
                         preview={setOverlayDraft}
+                        onReference={() => setOverlayLayout("compact")}
                         save={async (overlay) => {
                           await api("/settings", { overlay }, "PATCH");
                           setOverlayDraft(null);
@@ -2268,6 +2269,36 @@ function OverlayPanel({
   preview?: boolean;
   stale?: boolean;
 }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(1200);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [designHeight, setDesignHeight] = useState(700);
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const measure = () => {
+      setDesignHeight(panel.offsetHeight);
+      setViewportHeight(window.innerHeight);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    window.addEventListener("resize", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const observer = new ResizeObserver((entries) =>
+      setAvailableWidth(entries[0].contentRect.width),
+    );
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
   const preferences = {
     ...defaultOverlayPreferences,
     ...state.settings.overlay,
@@ -2315,109 +2346,142 @@ function OverlayPanel({
       (a, b) =>
         b.contributors - a.contributors || a.label.localeCompare(b.label),
     )[0];
+  const slotCount =
+    preferences.preset === "cozy"
+      ? layout === "atlas"
+        ? 4
+        : 3
+      : preferences.topicCount;
+  const designWidth = isTopics
+    ? layout === "atlas"
+      ? 1100
+      : 1200
+    : preferences.mascot
+      ? 590
+      : 420;
+  const requestedScale = preview ? 1 : preferences.scale;
+  const renderScale = Math.min(
+    requestedScale,
+    Math.max(0.1, availableWidth / designWidth),
+    preview
+      ? Infinity
+      : Math.max(
+          0.1,
+          (viewportHeight - preferences.safeArea * 2) /
+            Math.max(1, designHeight),
+        ),
+  );
   return (
     <div
-      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""} ${isTopics ? "broadcast-glance" : ""} ${preferences.mascot ? "" : "without-mascot"}`}
-      style={{
-        background: `rgba(255,252,255,${preferences.opacity})`,
-        zoom: preview ? 1 : preferences.scale,
-        maxWidth: preview
-          ? "100%"
-          : `calc((100vw - ${preferences.safeArea * 2}px) / ${preferences.scale})`,
-      }}
+      ref={frameRef}
+      className="broadcast-frame"
+      data-overlay-design="conversation-glance-v2"
     >
-      {preferences.mascot && (
-        <img
-          className="broadcast-mascot"
-          src="/images/overlay-streamer.png"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-        />
-      )}
-      <div className="broadcast-heading">
-        <Brand />
-        {isTopics && (
-          <h2 className="broadcast-glance-title">
-            The conversation, at a glance
-          </h2>
+      <div
+        ref={panelRef}
+        className={`broadcast-panel broadcast-${layout} ${layout === "atlas" ? "expanded" : ""} ${isTopics ? "broadcast-glance" : ""} ${preferences.mascot ? "" : "without-mascot"}`}
+        style={
+          {
+            background: `rgba(255,252,255,${preferences.opacity})`,
+            width: designWidth,
+            maxWidth: "none",
+            zoom: renderScale,
+            "--topic-columns":
+              layout === "atlas" ? Math.min(2, slotCount) : slotCount,
+          } as React.CSSProperties
+        }
+      >
+        {preferences.mascot && (
+          <img
+            className="broadcast-mascot"
+            src="/images/overlay-streamer.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
         )}
-        {(isTopics
-          ? state.settings.testUniqueMessages
-          : d?.countingMode === "message") && (
-          <span className="test-counts-label">TEST COUNTS</span>
-        )}
-        <span>
-          {state.session?.source === "live"
-            ? "CHAT PULSE"
-            : (state.session?.source ?? "demo").toUpperCase()}
-        </span>
-        {isTopics && <span className="broadcast-window">Last 2 min</span>}
-        {stale && <span className="stale-label">STALE · reconnecting</span>}
-      </div>
-      {state.settings.paused ? (
-        <p className="broadcast-empty">Overlay paused</p>
-      ) : layout === "voting" || layout === "results" ? (
-        d ? (
-          <>
-            <div
-              className={`broadcast-state ${d.state === "open" ? "is-open" : ""}`}
-            >
-              <span />
-              {d.state === "open"
-                ? "VOTE OPEN"
-                : d.state === "closed"
-                  ? "VOTE CLOSED"
-                  : d.state.toUpperCase()}
-            </div>
-            <h2>{d.question}</h2>
-            <div className="broadcast-votes">
-              {d.options.map((o, i) => (
-                <div
-                  key={i}
-                  className={
-                    d.state === "closed" && d.winners.includes(i)
-                      ? "broadcast-winner"
-                      : ""
-                  }
-                >
-                  <span>{i + 1}</span>
-                  <strong>
-                    {o}
-                    <span className="broadcast-approval-track">
-                      <i
-                        style={{
-                          width:
-                            (d.voters ? (d.counts[i] / d.voters) * 100 : 0) +
-                            "%",
-                        }}
-                      />
-                    </span>
-                  </strong>
-                  <b>{d.counts[i]}</b>
-                </div>
-              ))}
-            </div>
-            <p>
-              {stale
-                ? "Connection lost. Voting status unavailable."
-                : d.state === "open" && layout === "voting"
-                  ? d.countingMode === "message"
-                    ? "TEST VOTE · each message adds a simulated voter: !vote 1 3"
-                    : "Approve your favorites: !vote 1 3"
-                  : d.state === "cancelled"
-                    ? "Vote cancelled"
-                    : d.voters === 0
-                      ? "No votes. No winner."
-                      : `${d.voters} ${d.countingMode === "message" ? "simulated voters" : "valid voters"} · ${d.winners.length > 1 ? "Tie" : "Approval results"}`}
-            </p>
-          </>
+        <div className="broadcast-heading">
+          <Brand />
+          {isTopics && (
+            <h2 className="broadcast-glance-title">
+              The conversation, at a glance
+            </h2>
+          )}
+          {(isTopics
+            ? state.settings.testUniqueMessages
+            : d?.countingMode === "message") && (
+            <span className="test-counts-label">TEST COUNTS</span>
+          )}
+          <span>
+            {state.session?.source === "live"
+              ? "CHAT PULSE"
+              : (state.session?.source ?? "demo").toUpperCase()}
+          </span>
+          {isTopics && <span className="broadcast-window">Last 2 min</span>}
+          {stale && <span className="stale-label">STALE · reconnecting</span>}
+        </div>
+        {state.settings.paused ? (
+          <p className="broadcast-empty">Overlay paused</p>
+        ) : layout === "voting" || layout === "results" ? (
+          d ? (
+            <>
+              <div
+                className={`broadcast-state ${d.state === "open" ? "is-open" : ""}`}
+              >
+                <span />
+                {d.state === "open"
+                  ? "VOTE OPEN"
+                  : d.state === "closed"
+                    ? "VOTE CLOSED"
+                    : d.state.toUpperCase()}
+              </div>
+              <h2>{d.question}</h2>
+              <div className="broadcast-votes">
+                {d.options.map((o, i) => (
+                  <div
+                    key={i}
+                    className={
+                      d.state === "closed" && d.winners.includes(i)
+                        ? "broadcast-winner"
+                        : ""
+                    }
+                  >
+                    <span>{i + 1}</span>
+                    <strong>
+                      {o}
+                      <span className="broadcast-approval-track">
+                        <i
+                          style={{
+                            width:
+                              (d.voters ? (d.counts[i] / d.voters) * 100 : 0) +
+                              "%",
+                          }}
+                        />
+                      </span>
+                    </strong>
+                    <b>{d.counts[i]}</b>
+                  </div>
+                ))}
+              </div>
+              <p>
+                {stale
+                  ? "Connection lost. Voting status unavailable."
+                  : d.state === "open" && layout === "voting"
+                    ? d.countingMode === "message"
+                      ? "TEST VOTE · each message adds a simulated voter: !vote 1 3"
+                      : "Approve your favorites: !vote 1 3"
+                    : d.state === "cancelled"
+                      ? "Vote cancelled"
+                      : d.voters === 0
+                        ? "No votes. No winner."
+                        : `${d.voters} ${d.countingMode === "message" ? "simulated voters" : "valid voters"} · ${d.winners.length > 1 ? "Tie" : "Approval results"}`}
+              </p>
+            </>
+          ) : (
+            <p className="broadcast-empty">Waiting for a decision</p>
+          )
         ) : (
-          <p className="broadcast-empty">Waiting for a decision</p>
-        )
-      ) : (
-        <>
-          {topics.length ? (
+          <>
             <div className="broadcast-clusters">
               {topics.map((topic, index) => (
                 <article
@@ -2506,33 +2570,49 @@ function OverlayPanel({
                   )}
                 </article>
               ))}
+              {Array.from(
+                { length: Math.max(0, slotCount - topics.length) },
+                (_, index) => (
+                  <article
+                    className={`broadcast-topic-placeholder ${colors[topics.length + index]}`}
+                    key={`waiting-${index}`}
+                    aria-label="Waiting for another approved topic"
+                  >
+                    <MessageCircle size={30} />
+                    <strong>Waiting for another topic</strong>
+                    <p>
+                      Qualifying, approved topics appear here as the
+                      conversation grows.
+                    </p>
+                    <span>Not enough data yet</span>
+                  </article>
+                ),
+              )}
             </div>
-          ) : (
-            <p className="broadcast-empty">Waiting for more conversation</p>
-          )}
-          {!state.settings.paused && topics.length > 0 && (
-            <>
-              <div className="glance-notice">
-                <Sparkles size={25} />
-                <strong>
-                  {stale
-                    ? "Connection interrupted. Showing the last received conversation."
-                    : noteworthy
-                      ? `Worth noticing: ${noteworthy.contributors} ${state.settings.testUniqueMessages ? "test contributors" : noteworthy.contributors === 1 ? "person" : "people"} mentioned ${noteworthy.label.toLowerCase()}.`
-                      : `Worth noticing: ${displayLabel(topics[0].label)} leads with ${topics[0].contributors} distinct ${state.settings.testUniqueMessages ? "test contributors" : "people"}.`}
-                </strong>
-              </div>
-              <p className="glance-scale-note">
-                Bars compare each topic with the leading displayed topic (
-                {leadingCount} people).
-              </p>
-            </>
-          )}
-          <p className="glance-footer">
-            People may appear in multiple topics · Mentions are not votes
-          </p>
-        </>
-      )}
+            {!state.settings.paused && topics.length > 0 && (
+              <>
+                <div className="glance-notice">
+                  <Sparkles size={25} />
+                  <strong>
+                    {stale
+                      ? "Connection interrupted. Showing the last received conversation."
+                      : noteworthy
+                        ? `Worth noticing: ${noteworthy.contributors} ${state.settings.testUniqueMessages ? "test contributors" : noteworthy.contributors === 1 ? "person" : "people"} mentioned ${noteworthy.label.toLowerCase()}.`
+                        : `Worth noticing: ${displayLabel(topics[0].label)} leads with ${topics[0].contributors} distinct ${state.settings.testUniqueMessages ? "test contributors" : "people"}.`}
+                  </strong>
+                </div>
+                <p className="glance-scale-note">
+                  Bars compare each topic with the leading displayed topic (
+                  {leadingCount} people).
+                </p>
+              </>
+            )}
+            <p className="glance-footer">
+              People may appear in multiple topics · Mentions are not votes
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

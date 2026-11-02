@@ -671,3 +671,123 @@ test("unique-message mode counts repeated vote messages and labels frozen test r
   expect(snapshot.decision.voters).toBe(3);
   expect(snapshot.decision.counts).toEqual([2, 1, 0]);
 });
+
+test("reference overlay keeps identical geometry in preview and narrow browser sources", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".topic-chart-card").first()).toBeVisible();
+  const baseline = await (await page.request.get("/api/snapshot")).json();
+  const fixture = {
+    ...baseline,
+    topics: [16, 15, 14].map((contributors, index) => ({
+      ...baseline.topics[0],
+      id: `reference-${index}`,
+      label: ["Valorant discussion", "Minecraft discussion", "Taking a break"][
+        index
+      ],
+      contributors,
+      messages: [26, 24, 22][index],
+      approved: true,
+      hidden: false,
+      highlights:
+        index === 0
+          ? [
+              { label: "Ranked", contributors: 10 },
+              { label: "Playing with friends", contributors: 6 },
+            ]
+          : index === 1
+            ? [
+                { label: "Building", contributors: 3 },
+                { label: "Survival", contributors: 3 },
+              ]
+            : [{ label: "Hydration", contributors: 13 }],
+    })),
+    settings: {
+      ...baseline.settings,
+      testUniqueMessages: false,
+      paused: false,
+      overlay: {
+        scale: 1,
+        opacity: 0.98,
+        mascot: true,
+        topicCount: 3,
+        safeArea: 40,
+        preset: "cozy",
+      },
+    },
+  };
+  await page.route("**/api/snapshot", (route) =>
+    route.fulfill({ json: fixture }),
+  );
+  await page.routeWebSocket("**/ws", (socket) =>
+    socket.send(JSON.stringify({ type: "snapshot", ...fixture })),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  await page.getByRole("button", { name: "Create link", exact: true }).click();
+  const link = await page.locator(".overlay-link code").textContent();
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 820 },
+  });
+  const overlay = await context.newPage();
+  await overlay.route("**/api/overlay/snapshot", (route) =>
+    route.fulfill({ json: fixture }),
+  );
+  await overlay.routeWebSocket("**/ws/overlay", (socket) =>
+    socket.send(JSON.stringify({ type: "snapshot", ...fixture })),
+  );
+  await overlay.goto(link!);
+  async function geometry(target: typeof page) {
+    return target.locator(".broadcast-panel").evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      const title = panel.querySelector(".broadcast-glance-title")!;
+      const cards = [...panel.querySelectorAll(".broadcast-topic-cluster")].map(
+        (card) => {
+          const r = card.getBoundingClientRect();
+          return {
+            x: (r.x - box.x) / box.width,
+            y: (r.y - box.y) / box.width,
+            width: r.width / box.width,
+          };
+        },
+      );
+      return {
+        ratio: box.height / box.width,
+        font: getComputedStyle(title).fontSize,
+        cards,
+      };
+    });
+  }
+  await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(3);
+  const source = await geometry(overlay);
+  const preview = await geometry(page);
+  expect(source.font).toBe(preview.font);
+  expect(Math.abs(source.ratio - preview.ratio)).toBeLessThan(0.01);
+  for (let i = 0; i < 3; i++) {
+    expect(Math.abs(source.cards[i].x - preview.cards[i].x)).toBeLessThan(0.01);
+    expect(Math.abs(source.cards[i].y - preview.cards[i].y)).toBeLessThan(0.01);
+  }
+  await overlay.setViewportSize({ width: 640, height: 720 });
+  await expect
+    .poll(async () => {
+      const current = await geometry(overlay);
+      return Math.abs(current.ratio - source.ratio);
+    })
+    .toBeLessThan(0.01);
+  const narrow = await geometry(overlay);
+  expect(narrow.cards[0].y).toBe(narrow.cards[1].y);
+  expect(
+    await overlay.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  fixture.topics = fixture.topics.slice(0, 1);
+  await overlay.reload();
+  await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(1);
+  await expect(overlay.locator(".broadcast-topic-placeholder")).toHaveCount(2);
+  const sparse = await geometry(overlay);
+  expect(sparse.cards[0].width).toBeCloseTo(source.cards[0].width, 2);
+  await context.close();
+});

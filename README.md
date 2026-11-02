@@ -92,7 +92,7 @@ Raw messages expire after **24 hours**; active memberships expire after **120 se
 
 ## Validation and remaining acceptance
 
-Latest feature validation: all four server test files and **13 browser acceptance tests passed**, plus type checking, lint, and build. The new evidence, recap persistence, style presets, and draft-vote flows have automated coverage. Earlier production/restart smoke results remain documented separately.
+Latest feature validation: all four server test files and **14 browser acceptance tests passed**, plus type checking, lint, and build. The new evidence, recap persistence, style presets, and draft-vote flows have automated coverage. Earlier production/restart smoke results remain documented separately.
 
 Actual measurements are in [LOAD_RESULTS.json](docs/LOAD_RESULTS.json) and [EVALUATION_RESULTS.json](docs/EVALUATION_RESULTS.json). The latter is a tiny Codex-authored synthetic set, **not** the required independent human-labeled evaluation. No general accuracy, frame-rate, Twitch-latency, or audience-impact claims follow from it.
 

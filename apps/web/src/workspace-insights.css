@@ -293,3 +293,8 @@
 .extracted-label-note .button {
   font-size: 10px;
 }
+.overlay-style-controls .reference-design-button {
+  grid-column: 1/-1;
+  justify-self: start;
+  font-size: 11px;
+}
