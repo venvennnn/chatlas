@@ -408,6 +408,18 @@ test("overlay renders ranked clusters and per-topic mentions without private quo
   );
   await overlay.goto(link!);
   await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(3);
+  const mascot = overlay.locator(".broadcast-mascot");
+  await expect(mascot).toBeVisible();
+  await expect(mascot).toHaveJSProperty("complete", true);
+  expect(
+    await mascot.evaluate((image) => (image as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  const mascotBox = await mascot.boundingBox();
+  const clustersBox = await overlay
+    .locator(".broadcast-clusters")
+    .boundingBox();
+  expect(clustersBox!.x + clustersBox!.width).toBeLessThanOrEqual(mascotBox!.x);
+
   await expect(overlay.locator(".broadcast-cluster-pill strong")).toHaveText([
     "Topic 1",
     "Topic 2",

@@ -2129,6 +2129,13 @@ function OverlayPanel({
     <div
       className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""}`}
     >
+      <img
+        className="broadcast-mascot"
+        src="/images/overlay-streamer.png"
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+      />
       <div className="broadcast-heading">
         <Brand />
         {state.settings.testUniqueMessages && (

@@ -252,3 +252,89 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* Reserve a separate side column so the illustration never covers live data. */
+.broadcast-panel {
+  position: relative;
+}
+.broadcast-panel:not(:has(.broadcast-votes)) {
+  padding-right: 258px;
+}
+.broadcast-panel.broadcast-atlas {
+  padding-right: 224px;
+}
+.broadcast-panel:has(.broadcast-votes) {
+  width: 590px;
+  padding-right: 190px;
+}
+.broadcast-mascot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 235px;
+  max-height: calc(100% - 20px);
+  object-fit: contain;
+  object-position: right bottom;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 5px 8px #9c64b419);
+}
+.broadcast-atlas .broadcast-mascot {
+  width: 202px;
+}
+.broadcast-panel:has(.broadcast-votes) .broadcast-mascot {
+  width: 170px;
+}
+.broadcast-panel.preview {
+  padding-right: 128px;
+}
+.preview .broadcast-mascot,
+.preview.broadcast-atlas .broadcast-mascot {
+  width: 112px;
+}
+.broadcast-panel.preview:has(.broadcast-votes) {
+  width: 100%;
+  padding-right: 128px;
+}
+.preview:has(.broadcast-votes) .broadcast-mascot {
+  width: 112px;
+}
+@media (max-width: 760px) {
+  .broadcast-panel:not(:has(.broadcast-votes)),
+  .broadcast-panel.broadcast-atlas,
+  .broadcast-panel:has(.broadcast-votes),
+  .broadcast-panel.preview,
+  .broadcast-panel.preview:has(.broadcast-votes) {
+    padding-right: 20px;
+  }
+  .broadcast-panel .broadcast-mascot,
+  .broadcast-panel.preview .broadcast-mascot {
+    position: relative;
+    float: right;
+    width: 130px;
+    height: 170px;
+    max-height: none;
+    margin: 10px -10px 0 12px;
+    shape-outside: inset(0);
+  }
+  .broadcast-panel::after {
+    content: "";
+    display: block;
+    clear: both;
+  }
+}
+@media (max-width: 760px) {
+  .broadcast-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .broadcast-panel .broadcast-mascot,
+  .broadcast-panel.preview .broadcast-mascot {
+    position: static;
+    order: 99;
+    float: none;
+    align-self: flex-end;
+    width: 130px;
+    height: 170px;
+    margin: 12px 0 -12px auto;
+  }
+}
