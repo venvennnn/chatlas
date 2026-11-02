@@ -1659,3 +1659,41 @@ body {
     background-position: 82% bottom;
   }
 }
+/* Keep the conversation bubbles in the negative space, clear of the face. */
+.cloud-game {
+  left: 46%;
+  top: 0;
+}
+.cloud-music {
+  left: 44%;
+  top: 148px;
+}
+.cloud-break {
+  left: 46%;
+  top: 300px;
+}
+@media (min-width: 1500px) {
+  .cloud-game {
+    top: 24px;
+  }
+  .cloud-music {
+    top: 190px;
+  }
+  .cloud-break {
+    top: 356px;
+  }
+}
+@media (min-width: 1001px) and (max-width: 1200px) {
+  .cloud-game {
+    left: 50%;
+    top: 0;
+  }
+  .cloud-music {
+    left: 48%;
+    top: 142px;
+  }
+  .cloud-break {
+    left: 50%;
+    top: 284px;
+  }
+}

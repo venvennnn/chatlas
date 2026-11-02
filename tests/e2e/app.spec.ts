@@ -262,3 +262,110 @@ test("illustrated front page opens the workspace and dedicated overlay controls"
     page.getByRole("heading", { name: "Twitch connection", exact: true }),
   ).toBeHidden();
 });
+
+test("top-four analytics rank independently of the inspector and update from the live feed", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".island").first()).toBeVisible();
+  const baseline = await (await page.request.get("/api/snapshot")).json();
+  const fixture = {
+    ...baseline,
+    revision: baseline.revision + 10000,
+    participants: 50,
+    topics: [30, 20, 10, 5, 2].map((contributors, index) => ({
+      ...baseline.topics[0],
+      id: `analytics-${index}`,
+      label: `Category ${String.fromCharCode(65 + index)}`,
+      contributors,
+      messages: [40, 90, 15, 8, 4][index],
+      pinned: index === 4,
+      hidden: false,
+      trend: index - 2,
+      spark: Array.from({ length: 12 }, (_, bin) => (bin + index) % 7),
+    })),
+  };
+  let sendSnapshot = (_snapshot: typeof fixture) => {};
+  await page.routeWebSocket("**/ws", (socket) => {
+    sendSnapshot = (snapshot) =>
+      socket.send(JSON.stringify({ type: "snapshot", ...snapshot }));
+    sendSnapshot(fixture);
+  });
+  await page.route("**/api/snapshot", (route) =>
+    route.fulfill({ json: fixture }),
+  );
+  await page.reload();
+  const analytics = page.getByRole("region", {
+    name: "Four topics. The whole pulse.",
+  });
+  const headings = analytics.locator(".topic-chart-heading h3");
+  await expect(headings).toHaveText([
+    "Category A",
+    "Category B",
+    "Category C",
+    "Category D",
+  ]);
+  await expect(analytics.locator(".analytics-feed")).toContainText(
+    "Updating every second",
+  );
+  await expect(
+    analytics.getByText("Shared y-axis · people / 10s"),
+  ).toBeVisible();
+  const charts = analytics.locator(".topic-chart-card > svg[viewBox]");
+  await expect(charts).toHaveCount(4);
+  for (const chart of await charts.all())
+    await expect(chart).toHaveAttribute("aria-label", /shared scale 0 to 8/);
+  await analytics
+    .getByRole("combobox", { name: "Rank top topics by" })
+    .selectOption("messages");
+  await expect(headings).toHaveText([
+    "Category B",
+    "Category A",
+    "Category C",
+    "Category D",
+  ]);
+  await analytics
+    .getByRole("combobox", { name: "Rank top topics by" })
+    .selectOption("contributors");
+  fixture.revision++;
+  fixture.topics[4].contributors = 40;
+  fixture.topics[4].messages = 65;
+  fixture.topics[4].spark[11] = 14;
+  sendSnapshot(fixture);
+  await expect(headings).toHaveText([
+    "Category E",
+    "Category A",
+    "Category B",
+    "Category C",
+  ]);
+  await expect(
+    analytics
+      .locator(".topic-chart-card")
+      .first()
+      .locator(".topic-chart-metrics > div")
+      .first(),
+  ).toContainText("40");
+  await expect(charts.first()).toHaveAttribute(
+    "aria-label",
+    /shared scale 0 to 16/,
+  );
+  await analytics
+    .getByRole("img", {
+      name: "10–0s ago: 14 distinct contributors",
+      exact: true,
+    })
+    .focus();
+  await expect(analytics.locator(".topic-chart-caption").first()).toContainText(
+    "10–0s ago · 14 people",
+  );
+  await analytics.getByText("View exact chart data", { exact: true }).click();
+  await expect(analytics.getByRole("table").getByRole("row")).toHaveCount(13);
+  await expect(
+    analytics
+      .getByRole("table")
+      .getByRole("row")
+      .last()
+      .getByRole("cell")
+      .first(),
+  ).toHaveText("14");
+});

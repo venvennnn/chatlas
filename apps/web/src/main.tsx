@@ -53,6 +53,7 @@ import { api, ApiError, subscribe } from "./api";
 import "./style.css";
 import "./studio.css";
 import "./twitch.css";
+import { TopicAnalytics } from "./TopicAnalytics";
 const colors = [
   "blue",
   "peach",
@@ -1191,6 +1192,7 @@ function App() {
                         )}
                       </aside>
                     </div>
+                    <TopicAnalytics state={state} online={online} />
                     <section className="timeline-card">
                       <div className="timeline-title">
                         <Activity size={17} />
