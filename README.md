@@ -34,20 +34,29 @@ Open the development frontend on port **5173**. Vite proxies `/api`, `/auth`, an
 
 The initial Demo contains synthetic messages and keeps generating them until paused. Select a topic to inspect private evidence. Choose **New decision**, edit options, publish, then use the Demo lab to send `!vote 1 3`, followed by `!vote 2`. The voter count stays at one. Close the vote and refresh; the result persists.
 
+## Explore, investigate, and decide
+
+The Live room now surfaces measured changes between consecutive minutes and shows analysis freshness, processing time, coverage, queue depth, and connection gaps. Click a top-four chart point to inspect the exact ten-second message bucket, then create an editable topic-based vote draft. Language-pattern counts distinguish explicit suggestion, disagreement, and question markers without treating mentions as endorsements.
+
+Overlay includes persistent Cozy, Gameplay safe, and Minimal presets plus size, opacity, character visibility, topic count, and safe margins. Session history includes sampled participation trends, peak topic clusters grouped by label, decisions, and downloadable HTML/JSON recaps. Aggregates are sampled every 15 seconds; peaks are not whole-stream unique participant totals.
+
+See [insights and acceptance](docs/INSIGHTS_AND_ACCEPTANCE.md) for the data definitions, evaluation workflow, and real Twitch/OBS acceptance steps. Real Twitch/OBS acceptance and independent human-labeled evaluation remain outstanding; synthetic tests do not establish those outcomes.
+
 ## Commands
 
-| Command                              | Purpose                                                     |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `npm run dev`                        | Start Fastify and Vite with reload                          |
-| `npm run build`                      | Build the frontend and check server types                   |
-| `npm start`                          | Serve production frontend and API from Fastify              |
-| `npm run lint` / `npm run typecheck` | Static checks                                               |
-| `npm test`                           | Database, auth, worker, transport, and replay tests         |
-| `npm run test:e2e`                   | Playwright browser acceptance                               |
-| `npm run test:load`                  | Bounded synthetic SQLite/worker load, writes actual results |
-| `npm run evaluate`                   | Small synthetic lexical grouping evaluation                 |
-| `npm run model:download`             | Download and exercise the optional MiniLM CPU model         |
-| `npm run secrets:init`               | Generate only missing local secrets                         |
+| Command                                   | Purpose                                                         |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `npm run dev`                             | Start Fastify and Vite with reload                              |
+| `npm run build`                           | Build the frontend and check server types                       |
+| `npm start`                               | Serve production frontend and API from Fastify                  |
+| `npm run lint` / `npm run typecheck`      | Static checks                                                   |
+| `npm test`                                | Database, auth, worker, transport, and replay tests             |
+| `npm run test:e2e`                        | Playwright browser acceptance                                   |
+| `npm run test:load`                       | Bounded synthetic SQLite/worker load, writes actual results     |
+| `npm run evaluate`                        | Small synthetic lexical grouping evaluation                     |
+| `npm run evaluate:topics -- dataset.json` | Grouping and intent evaluation with explicit dataset provenance |
+| `npm run model:download`                  | Download and exercise the optional MiniLM CPU model             |
+| `npm run secrets:init`                    | Generate only missing local secrets                             |
 
 Install a browser with `npx playwright install chromium`. If Chromium is already installed, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to its path. Tests use a separate in-memory or temporary database except browser tests, which operate on the local Demo database and reset the Demo. Do not run browser tests against an active Live session.
 
@@ -81,7 +90,7 @@ Raw messages expire after **24 hours**; active memberships expire after **120 se
 
 ## Validation and remaining acceptance
 
-Latest automated checks: **21 server tests and 6 browser tests passed**, plus production process/restart smoke, type checking, lint, and build. Clean lockfile installation was repeated successfully.
+Latest feature validation: all four server test files and **11 browser acceptance tests passed**, plus type checking, lint, and build. The new evidence, recap persistence, style presets, and draft-vote flows have automated coverage. Earlier production/restart smoke results remain documented separately.
 
 Actual measurements are in [LOAD_RESULTS.json](docs/LOAD_RESULTS.json) and [EVALUATION_RESULTS.json](docs/EVALUATION_RESULTS.json). The latter is a tiny Codex-authored synthetic set, **not** the required independent human-labeled evaluation. No general accuracy, frame-rate, Twitch-latency, or audience-impact claims follow from it.
 

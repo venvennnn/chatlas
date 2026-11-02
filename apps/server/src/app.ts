@@ -12,7 +12,10 @@ import { Twitch } from "./twitch.ts";
 import { importReplay, controlReplay, tickReplay } from "./replay.ts";
 import { seedDemo, demoMessage } from "./demo.ts";
 import { config, twitchConfigured, projectRoot } from "./config.ts";
-import type { Snapshot } from "../../../packages/shared/src/index.ts";
+import {
+  defaultOverlayPreferences,
+  type Snapshot,
+} from "../../../packages/shared/src/index.ts";
 export async function createApp(
   path = config.DATABASE_PATH,
   options: { background?: boolean; model?: string } = {},
@@ -39,6 +42,7 @@ export async function createApp(
     showEvidence: store.setting("showEvidence", false),
     testUniqueMessages: store.setting("testUniqueMessages", false),
     area: store.setting("area", "people"),
+    overlay: { ...defaultOverlayPreferences, ...store.setting("overlay", {}) },
   });
   const snapshot = (role: "owner" | "overlay" = "owner"): Snapshot => {
     const session = store.current(),
@@ -63,6 +67,10 @@ export async function createApp(
         coverage: analysis.coverage,
         queue: analysis.queue,
         windowSeconds: 120,
+        windowEnd: analysis.windowEnd,
+        completedAt: analysis.completedAt,
+        processingMs: analysis.processingMs,
+        ageMs: analysis.completedAt ? Date.now() - analysis.completedAt : null,
       },
       topics: role === "overlay" ? (ts.paused ? [] : safeTopics) : topics,
       decision:
@@ -180,6 +188,29 @@ export async function createApp(
       throw Object.assign(new Error("Session not found"), { statusCode: 404 });
     return { session, decisions: store.decisions(id) };
   });
+  app.get("/api/topics/:id/evidence", { preHandler: owner }, (req) => {
+    const { windowEnd, bucket } = z
+      .object({
+        windowEnd: z.coerce.number().int().positive(),
+        bucket: z.coerce.number().int().min(0).max(11),
+      })
+      .parse(req.query);
+    return analysis.evidence((req.params as any).id, windowEnd, bucket);
+  });
+  app.get("/api/sessions/:id/recap", { preHandler: owner }, (req) =>
+    store.recap((req.params as any).id),
+  );
+  app.get("/api/readiness", { preHandler: owner }, () => ({
+    configured: twitchConfigured,
+    authorized: Boolean(auth.connection()),
+    transport: twitch.state,
+    source: store.current()?.source ?? null,
+    liveReceived: twitch.state === "live",
+    overlayAvailable: Boolean(
+      store.get("SELECT 1 FROM overlay_credentials LIMIT 1"),
+    ),
+    obsVerified: false,
+  }));
   app.get(
     "/api/connection",
     { preHandler: owner },
@@ -453,6 +484,16 @@ export async function createApp(
         showEvidence: z.boolean().optional(),
         testUniqueMessages: z.boolean().optional(),
         area: z.enum(["people", "messages"]).optional(),
+        overlay: z
+          .object({
+            scale: z.number().min(0.5).max(1.25),
+            opacity: z.number().min(0.5).max(1),
+            mascot: z.boolean(),
+            topicCount: z.number().int().min(1).max(4),
+            safeArea: z.number().int().min(0).max(120),
+            preset: z.enum(["cozy", "gameplay", "minimal", "custom"]),
+          })
+          .optional(),
       })
       .parse(req.body);
     const changedIdentity =

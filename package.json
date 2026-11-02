@@ -23,7 +23,8 @@
     "format": "prettier --write .",
     "evaluate": "node --import tsx tests/evaluate.ts",
     "secrets:init": "node scripts/init-secrets.mjs",
-    "test:production": "node --import tsx tests/production.ts"
+    "test:production": "node --import tsx tests/production.ts",
+    "evaluate:topics": "node --import tsx scripts/evaluate-topics.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -7,6 +7,8 @@ import {
   type Decision,
   type Message,
   type Source,
+  type Topic,
+  type SessionRecap,
 } from "../../../packages/shared/src/index.ts";
 export const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export class Store {
@@ -22,6 +24,20 @@ export class Store {
         "utf8",
       ),
     );
+    this.db.exec(
+      readFileSync(
+        new URL("../migrations/002_insights.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    if (
+      !this.all("PRAGMA table_info(analysis_samples)").some(
+        (column) => column.name === "simulated",
+      )
+    )
+      this.db.exec(
+        "ALTER TABLE analysis_samples ADD COLUMN simulated INTEGER NOT NULL DEFAULT 0",
+      );
     this.sequence = Number(
       (
         this.db
@@ -343,6 +359,92 @@ export class Store {
     this.run("DELETE FROM dashboard_sessions WHERE expires<?", now);
     this.run("DELETE FROM oauth_states WHERE expires<?", now);
     this.run("DELETE FROM idempotency WHERE at<?", now - 86400000);
+  }
+  saveSample(
+    sessionId: string,
+    at: number,
+    topics: Topic[],
+    participants: number,
+    messages: number,
+    coverage: number,
+  ) {
+    const last =
+      this.get(
+        "SELECT MAX(at) at FROM analysis_samples WHERE session_id=?",
+        sessionId,
+      )?.at ?? 0;
+    if (at - last < 15000) return;
+    this.run(
+      "INSERT OR IGNORE INTO analysis_samples(session_id,at,topics,participants,messages,coverage,simulated) VALUES(?,?,?,?,?,?,?)",
+      sessionId,
+      at,
+      JSON.stringify(
+        topics
+          .filter((t) => !t.hidden)
+          .map((t) => ({
+            id: t.id,
+            label: t.label,
+            contributors: t.contributors,
+            messages: t.messages,
+          })),
+      ),
+      participants,
+      messages,
+      coverage,
+      this.setting("testUniqueMessages", false) ? 1 : 0,
+    );
+    // Bounded retained aggregates: raw messages and usernames are never copied here.
+    this.run(
+      "DELETE FROM analysis_samples WHERE session_id=? AND at NOT IN (SELECT at FROM analysis_samples WHERE session_id=? ORDER BY at DESC LIMIT 2400)",
+      sessionId,
+      sessionId,
+    );
+  }
+  recap(sessionId: string): SessionRecap {
+    const session = this.sessions().find((s) => s.id === sessionId);
+    if (!session)
+      throw Object.assign(new Error("Session not found"), { statusCode: 404 });
+    const rows = this.all(
+      "SELECT * FROM analysis_samples WHERE session_id=? ORDER BY at",
+      sessionId,
+    );
+    const topics = new Map<string, SessionRecap["topics"][number]>();
+    for (const row of rows) {
+      const seen = new Set<string>();
+      for (const item of JSON.parse(row.topics)) {
+        const key = item.label.normalize("NFKC").toLowerCase().trim();
+        const old = topics.get(key) ?? {
+          id: item.id,
+          label: item.label,
+          peakPeople: 0,
+          peakMessages: 0,
+          samples: 0,
+        };
+        old.label = item.label;
+        // Across re-clustering, labels can have new IDs. Keep peak clusters; never sum overlapping people.
+        old.peakPeople = Math.max(old.peakPeople, item.contributors);
+        old.peakMessages = Math.max(old.peakMessages, item.messages);
+        if (!seen.has(key)) old.samples++;
+        seen.add(key);
+        topics.set(key, old);
+      }
+    }
+    return {
+      session,
+      samples: rows.map((r) => ({
+        at: r.at,
+        participants: r.participants,
+        messages: r.messages,
+        coverage: r.coverage,
+        simulated: Boolean(r.simulated),
+      })),
+      topics: [...topics.values()]
+        .sort((a, b) => b.peakPeople - a.peakPeople)
+        .slice(0, 20),
+      decisions: this.decisions(sessionId),
+      sampleCount: rows.length,
+      truncated: rows.length >= 2400,
+    };
   }
   setting(key: string, fallback: any) {
     const r = this.get("SELECT value FROM settings WHERE key=?", key);

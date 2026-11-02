@@ -1,3 +1,4 @@
+import { synonyms, intentOf } from "./topic-language.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 import { createHash } from "node:crypto";
 const stop = new Set(
@@ -9,26 +10,11 @@ const tokens = (t) =>
   t
     .normalize("NFKC")
     .toLowerCase()
+    .replace(/lo[ -]fi/g, "lofi")
+    .replace(/k[ -]pop/g, "kpop")
     .match(/[\p{L}\p{N}]{2,}/gu)
     ?.filter((t) => !stop.has(t)) ?? [];
-const canonical = (t) =>
-  ({
-    mc: "minecraft",
-    crafting: "minecraft",
-    mining: "minecraft",
-    valo: "valorant",
-    val: "valorant",
-    ranked: "valorant",
-    breaks: "break",
-    hydrate: "break",
-    water: "break",
-    audio: "sound",
-    volume: "sound",
-    loud: "sound",
-    lagging: "lag",
-    buffering: "lag",
-    fps: "lag",
-  })[t] ?? t;
+const canonical = (t) => (Object.hasOwn(synonyms, t) ? synonyms[t] : t);
 // Public highlights use a fixed vocabulary; never publish arbitrary chat text.
 const highlightLabels = {
   minecraft: "Minecraft",
@@ -361,6 +347,15 @@ parentPort.on(
           share: participants ? people.size / participants : 0,
           repetition: (c.members.length - people.size) / c.members.length,
           trend: recent - prev,
+          periods: { recent, previous: prev },
+          intent: Object.fromEntries(
+            ["suggestions", "disagreement", "questions"].map((kind) => [
+              kind,
+              new Set(
+                c.members.filter((m) => intentOf(m.text)[kind]).map(identity),
+              ).size,
+            ]),
+          ),
           spark,
           evidence: c.members.slice(-12).reverse(),
           highlights,
@@ -388,6 +383,9 @@ parentPort.on(
       queue: 0,
       provider,
       modelError,
+      windowEnd: now,
+      participants,
+      messageCount: messages.length,
       generation,
     });
   },

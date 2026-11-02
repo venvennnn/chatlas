@@ -350,7 +350,7 @@ test("top-four analytics rank independently of the inspector and update from the
     /shared scale 0 to 16/,
   );
   await analytics
-    .getByRole("img", {
+    .getByRole("button", {
       name: "10–0s ago: 14 distinct contributors",
       exact: true,
     })
@@ -450,4 +450,105 @@ test("overlay renders ranked clusters and per-topic mentions without private quo
     ),
   ).toBe("rgba(0, 0, 0, 0)");
   await context.close();
+});
+
+test("a chart opens exact evidence and seeds an editable unpublished vote draft", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".topic-chart-card").first()).toBeVisible();
+  const before = await (await page.request.get("/api/snapshot")).json();
+  await page
+    .getByRole("button", { name: "Inspect peak evidence", exact: true })
+    .first()
+    .click();
+  const evidence = page.getByRole("dialog");
+  await expect(evidence).toBeVisible();
+  await expect(evidence.locator(".evidence-summary")).toContainText(
+    "distinct people",
+  );
+  await expect(
+    evidence.locator(".bucket-messages article").first(),
+  ).toBeVisible();
+  await evidence
+    .getByRole("button", { name: "Turn topic into a vote draft" })
+    .click();
+  const composer = page.getByRole("dialog");
+  await expect(
+    composer.getByRole("heading", { name: "Let chat decide." }),
+  ).toBeVisible();
+  await expect(
+    composer.getByRole("textbox", { name: "Your question" }),
+  ).toHaveValue(/What should we do about/);
+  await expect(
+    composer.getByRole("textbox", { name: "Option 1", exact: true }),
+  ).not.toHaveValue("");
+  const after = await (await page.request.get("/api/snapshot")).json();
+  expect(after.decisions.length).toBe(before.decisions.length);
+  await composer
+    .getByRole("button", { name: "Close decision composer" })
+    .click();
+});
+
+test("overlay presets persist and session reports export without raw chat", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".topic-chart-card").first()).toBeVisible();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Overlay style preset" })
+    .selectOption("minimal");
+  await page
+    .getByRole("button", { name: "Apply overlay style", exact: true })
+    .click();
+  await expect(page.locator(".overlay-preview .broadcast-mascot")).toHaveCount(
+    0,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Overlay style preset" }),
+  ).toHaveValue("minimal");
+  await expect(
+    page.getByRole("combobox", { name: "Overlay topic count" }),
+  ).toHaveValue("2");
+  await page.getByRole("button", { name: "Create link", exact: true }).click();
+  const link = await page.locator(".overlay-link code").textContent();
+  const context = await browser.newContext();
+  const overlay = await context.newPage();
+  await overlay.goto(link!);
+  await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(2);
+  await expect(overlay.locator(".broadcast-mascot")).toHaveCount(0);
+  expect(
+    await overlay
+      .locator(".broadcast-panel")
+      .evaluate((el) => getComputedStyle(el).zoom),
+  ).toBe("0.65");
+  await context.close();
+  await page
+    .getByRole("combobox", { name: "Overlay style preset" })
+    .selectOption("cozy");
+  await page
+    .getByRole("button", { name: "Apply overlay style", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Session history", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "View recap & decisions", exact: true })
+    .first()
+    .click();
+  const recap = page.getByRole("region", {
+    name: "Session recap",
+    exact: true,
+  });
+  await expect(recap).toBeVisible();
+  await expect(recap.getByRole("table")).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    recap.getByRole("button", { name: "Shareable HTML" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^chatlas-recap-.*\.html$/);
 });

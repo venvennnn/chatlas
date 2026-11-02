@@ -47,14 +47,30 @@ import {
   Waypoints,
   X,
 } from "lucide-react";
-import type { Snapshot, Decision } from "../../../packages/shared/src/index";
-import { voteHelp } from "../../../packages/shared/src/index";
+import type {
+  Snapshot,
+  Decision,
+  Topic,
+  OverlayPreferences,
+} from "../../../packages/shared/src/index";
+import {
+  voteHelp,
+  defaultOverlayPreferences,
+} from "../../../packages/shared/src/index";
 import { api, ApiError, subscribe } from "./api";
 import "./style.css";
 import "./studio.css";
 import "./twitch.css";
 import "./overlay-clusters.css";
 import { TopicAnalytics } from "./TopicAnalytics";
+import {
+  WorkspaceInsights,
+  EvidenceDialog,
+  OverlayStyleControls,
+  SessionRecap,
+  ConnectionReadiness,
+  type EvidenceSelection,
+} from "./WorkspaceInsights";
 const colors = [
   "blue",
   "peach",
@@ -302,6 +318,35 @@ function App() {
       session: { id: string };
       decisions: Decision[];
     } | null>(null);
+  const [evidenceSelection, setEvidenceSelection] =
+    useState<EvidenceSelection | null>(null);
+  const [voteSeed, setVoteSeed] = useState<{
+    question: string;
+    options: string[];
+  } | null>(null);
+  const [overlayDraft, setOverlayDraft] = useState<OverlayPreferences | null>(
+    null,
+  );
+  function draftTopic(topic: Topic) {
+    const choices = [
+      ...new Set(
+        (topic.highlights ?? []).map((item) => item.label.slice(0, 70)),
+      ),
+    ].slice(0, 5);
+    const options =
+      choices.length >= 2
+        ? choices
+        : [choices[0] ?? topic.label.slice(0, 70), "Another idea"];
+    setVoteSeed({
+      question:
+        `What should we do about ${topic.label.replace(/ discussion$/i, "")}?`.slice(
+          0,
+          180,
+        ),
+      options,
+    });
+    setComposer(true);
+  }
   const revision = useRef(-1);
   const accept = (s: Snapshot) => {
     if (s.revision >= revision.current) {
@@ -388,10 +433,6 @@ function App() {
     }
   const decision = state?.decision;
   const source = state?.session?.source ?? "demo";
-  function addCandidate(label: string) {
-    setCandidates((v) => (v.includes(label) ? v : [...v, label].slice(0, 5)));
-    setNotice("Added to your decision draft");
-  }
   function rotate() {
     void act(async () => {
       const r = await api("/overlay/rotate", {});
@@ -1026,10 +1067,10 @@ function App() {
                             </div>
                             <button
                               className="button primary full"
-                              onClick={() => addCandidate(topic.label)}
+                              onClick={() => draftTopic(topic)}
                             >
                               <Plus size={16} />
-                              Add to decision
+                              Create vote draft
                             </button>
                             <div className="topic-actions">
                               <button
@@ -1193,7 +1234,30 @@ function App() {
                         )}
                       </aside>
                     </div>
-                    <TopicAnalytics state={state} online={online} />
+                    <WorkspaceInsights
+                      state={state}
+                      online={online}
+                      inspect={(topic, bucket) =>
+                        setEvidenceSelection({
+                          topic,
+                          bucket,
+                          windowEnd: state.analysis.windowEnd ?? 0,
+                        })
+                      }
+                      draft={draftTopic}
+                    />
+                    <TopicAnalytics
+                      state={state}
+                      online={online}
+                      onInspect={(topic, bucket) =>
+                        setEvidenceSelection({
+                          topic,
+                          bucket,
+                          windowEnd: state.analysis.windowEnd ?? 0,
+                        })
+                      }
+                      onDraft={draftTopic}
+                    />
                     <section className="timeline-card">
                       <div className="timeline-title">
                         <Activity size={17} />
@@ -1391,7 +1455,7 @@ function App() {
                             )
                           }
                         >
-                          View decisions
+                          View recap & decisions
                         </button>
                         <button
                           className="button danger"
@@ -1416,6 +1480,7 @@ function App() {
                     {historyDetail && (
                       <div className="history-detail">
                         <h2>Session {historyDetail.session.id.slice(0, 8)}</h2>
+                        <SessionRecap sessionId={historyDetail.session.id} />
                         {historyDetail.decisions.length ? (
                           historyDetail.decisions.map((d) => (
                             <DecisionCard key={d.id} decision={d} act={act} />
@@ -1550,6 +1615,15 @@ function App() {
                           }
                         />
                       </label>
+                      <OverlayStyleControls
+                        value={state.settings.overlay}
+                        preview={setOverlayDraft}
+                        save={async (overlay) => {
+                          await api("/settings", { overlay }, "PATCH");
+                          setOverlayDraft(null);
+                          accept(await api("/snapshot"));
+                        }}
+                      />
                       <div className="overlay-controls">
                         <select
                           aria-label="Overlay layout"
@@ -1572,7 +1646,17 @@ function App() {
                         className={`overlay-preview ${lightPreview ? "light" : ""}`}
                       >
                         <OverlayPanel
-                          state={state}
+                          state={
+                            overlayDraft
+                              ? {
+                                  ...state,
+                                  settings: {
+                                    ...state.settings,
+                                    overlay: overlayDraft,
+                                  },
+                                }
+                              : state
+                          }
                           layout={overlayLayout}
                           preview
                         />
@@ -1613,6 +1697,7 @@ function App() {
                       </p>
                     </section>
                     <section className="content-card settings-card">
+                      <ConnectionReadiness />
                       <h2>
                         <ShieldCheck size={18} />
                         Data & analysis
@@ -1790,9 +1875,18 @@ function App() {
             </footer>
           </div>
         </main>
+        <EvidenceDialog
+          selection={evidenceSelection}
+          close={() => setEvidenceSelection(null)}
+          draft={draftTopic}
+        />
         <Composer
+          seed={voteSeed}
           open={composer}
-          onOpenChange={setComposer}
+          onOpenChange={(open) => {
+            setComposer(open);
+            if (!open) setVoteSeed(null);
+          }}
           candidates={candidates}
           onSubmit={async (question, options, duration) => {
             await act(async () => {
@@ -1803,6 +1897,7 @@ function App() {
               });
               await api("/decisions/" + d.id + "/open", {});
               setComposer(false);
+              setVoteSeed(null);
               setCandidates([]);
             }, "Decision published. Chat can vote now.");
           }}
@@ -1947,6 +2042,7 @@ function DecisionCard({
   );
 }
 function Composer({
+  seed,
   open,
   onOpenChange,
   candidates,
@@ -1955,6 +2051,7 @@ function Composer({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   candidates: string[];
+  seed?: { question: string; options: string[] } | null;
   onSubmit: (q: string, o: string[], d: number) => Promise<void>;
 }) {
   const [q, setQ] = useState("What should we play next?"),
@@ -1966,11 +2063,14 @@ function Composer({
     [duration, setDuration] = useState(60),
     [sending, setSending] = useState(false);
   useEffect(() => {
-    if (open && candidates.length)
+    if (open && seed) {
+      setQ(seed.question);
+      setOptions(seed.options);
+    } else if (open && candidates.length)
       setOptions(
         candidates.length === 1 ? [candidates[0], "Another idea"] : candidates,
       );
-  }, [open, candidates]);
+  }, [open, candidates, seed]);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -1995,6 +2095,8 @@ function Composer({
           </div>
           <Dialog.Title>Let chat decide.</Dialog.Title>
           <Dialog.Description>
+            {seed &&
+              "Drafted from recognized mentions, not endorsements. Review the question and options before publishing. "}
             One account, one current ballot. Approve as many options as you
             like. No extra accounts or extensions.
           </Dialog.Description>
@@ -2115,6 +2217,10 @@ function OverlayPanel({
   preview?: boolean;
   stale?: boolean;
 }) {
+  const preferences = {
+    ...defaultOverlayPreferences,
+    ...state.settings.overlay,
+  };
   const d = state.decision;
   const topics = state.topics
     .filter((t) => t.approved && !t.hidden)
@@ -2124,7 +2230,14 @@ function OverlayPanel({
         b.messages - a.messages ||
         a.id.localeCompare(b.id),
     )
-    .slice(0, layout === "atlas" ? 4 : 3);
+    .slice(
+      0,
+      preferences.preset === "cozy"
+        ? layout === "atlas"
+          ? 4
+          : 3
+        : preferences.topicCount,
+    );
   const isTopics = layout !== "voting" && layout !== "results";
   const displayLabel = (label: string) =>
     ({
@@ -2153,15 +2266,24 @@ function OverlayPanel({
     )[0];
   return (
     <div
-      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""} ${isTopics ? "broadcast-glance" : ""}`}
+      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""} ${isTopics ? "broadcast-glance" : ""} ${preferences.mascot ? "" : "without-mascot"}`}
+      style={{
+        background: `rgba(255,252,255,${preferences.opacity})`,
+        zoom: preview ? 1 : preferences.scale,
+        maxWidth: preview
+          ? "100%"
+          : `calc((100vw - ${preferences.safeArea * 2}px) / ${preferences.scale})`,
+      }}
     >
-      <img
-        className="broadcast-mascot"
-        src="/images/overlay-streamer.png"
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-      />
+      {preferences.mascot && (
+        <img
+          className="broadcast-mascot"
+          src="/images/overlay-streamer.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      )}
       <div className="broadcast-heading">
         <Brand />
         {isTopics && (
@@ -2406,7 +2528,10 @@ function Overlay() {
   const layout =
     new URLSearchParams(location.search).get("layout") ?? "compact";
   return (
-    <div className="overlay-canvas">
+    <div
+      className="overlay-canvas"
+      style={{ padding: state?.settings.overlay?.safeArea ?? 40 }}
+    >
       {error ? (
         <div className="overlay-error">
           Chatlas overlay unavailable. Refresh with a current browser-source

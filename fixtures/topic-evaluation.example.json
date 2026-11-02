@@ -1,0 +1,150 @@
+{
+  "provenance": "synthetic",
+  "description": "Small author-created regression fixture, not an independent human evaluation. Replace with consenting human-reviewed examples before making quality claims.",
+  "records": [
+    {
+      "text": "mc survival tonight",
+      "topic": "minecraft",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "Please play Minecraft",
+      "topic": "minecraft",
+      "intent": {
+        "suggestions": true,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "No Minecraft again please",
+      "topic": "minecraft",
+      "intent": {
+        "suggestions": false,
+        "disagreement": true,
+        "questions": false
+      }
+    },
+    {
+      "text": "Minecraft crafting stream?",
+      "topic": "minecraft",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": true
+      }
+    },
+    {
+      "text": "Please play valo ranked",
+      "topic": "valorant",
+      "intent": {
+        "suggestions": true,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "Valorant with friends",
+      "topic": "valorant",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "No more Valorant ranked",
+      "topic": "valorant",
+      "intent": {
+        "suggestions": false,
+        "disagreement": true,
+        "questions": false
+      }
+    },
+    {
+      "text": "val next please?",
+      "topic": "valorant",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": true
+      }
+    },
+    {
+      "text": "Please share the music",
+      "topic": "music",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "What song is this?",
+      "topic": "music",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": true
+      }
+    },
+    {
+      "text": "Love the playlist",
+      "topic": "music",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "Lo-fi music sounds great",
+      "topic": "music",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "The microphone is loud",
+      "topic": "sound",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "Please lower the audio volume",
+      "topic": "sound",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    },
+    {
+      "text": "Is the mic okay?",
+      "topic": "sound",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": true
+      }
+    },
+    {
+      "text": "Sound volume is fine",
+      "topic": "sound",
+      "intent": {
+        "suggestions": false,
+        "disagreement": false,
+        "questions": false
+      }
+    }
+  ]
+}

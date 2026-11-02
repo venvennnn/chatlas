@@ -6,7 +6,7 @@ import {
   Download,
   Users,
 } from "lucide-react";
-import type { Snapshot } from "../../../packages/shared/src/index";
+import type { Snapshot, Topic } from "../../../packages/shared/src/index";
 import "./analytics.css";
 
 const palette = ["#9550e9", "#e45a9a", "#25a988", "#6886df"];
@@ -15,9 +15,13 @@ const number = (value: number) => new Intl.NumberFormat("en").format(value);
 export function TopicAnalytics({
   state,
   online,
+  onInspect,
+  onDraft,
 }: {
   state: Snapshot;
   online: boolean;
+  onInspect?: (topic: Topic, bucket: number) => void;
+  onDraft?: (topic: Topic) => void;
 }) {
   const [rankBy, setRankBy] = useState<"contributors" | "messages">(
     "contributors",
@@ -294,8 +298,15 @@ export function TopicAnalytics({
                         height="105"
                         fill="transparent"
                         tabIndex={0}
-                        role="img"
+                        role="button"
                         aria-label={`${bucketLabel(index)}: ${value} distinct contributors`}
+                        onClick={() => onInspect?.(topic, index)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onInspect?.(topic, index);
+                          }
+                        }}
                         onMouseEnter={() => setActiveBin(index)}
                         onFocus={() => setActiveBin(index)}
                         onBlur={() => setActiveBin(null)}
@@ -326,6 +337,36 @@ export function TopicAnalytics({
                     Now
                   </text>
                 </svg>
+                {onDraft && (
+                  <div className="chart-actions">
+                    <button
+                      className="text-button"
+                      disabled={!state.session}
+                      onClick={() => onDraft(topic)}
+                    >
+                      Create vote draft
+                    </button>
+                    <button
+                      className="text-button"
+                      disabled={!state.analysis.windowEnd}
+                      onClick={() =>
+                        onInspect?.(
+                          topic,
+                          topic.spark.indexOf(Math.max(...topic.spark)),
+                        )
+                      }
+                    >
+                      Inspect peak evidence
+                    </button>
+                  </div>
+                )}
+                {topic.intent && (
+                  <p className="intent-labels">
+                    Language patterns · {topic.intent.suggestions} suggestions ·{" "}
+                    {topic.intent.disagreement} disagreements ·{" "}
+                    {topic.intent.questions} questions
+                  </p>
+                )}
                 <div className="topic-chart-foot">
                   <span>Repeat-message share</span>
                   <strong>{(topic.repetition * 100).toFixed(1)}%</strong>

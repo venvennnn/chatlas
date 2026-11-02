@@ -18,6 +18,52 @@ export interface Message {
   emotes: string[];
   deleted?: boolean;
 }
+export interface OverlayPreferences {
+  scale: number;
+  opacity: number;
+  mascot: boolean;
+  topicCount: number;
+  safeArea: number;
+  preset: "cozy" | "gameplay" | "minimal" | "custom";
+}
+export const defaultOverlayPreferences: OverlayPreferences = {
+  scale: 1,
+  opacity: 0.98,
+  mascot: true,
+  topicCount: 3,
+  safeArea: 40,
+  preset: "cozy",
+};
+export interface TopicIntent {
+  suggestions: number;
+  disagreement: number;
+  questions: number;
+}
+export interface SessionRecap {
+  session: {
+    id: string;
+    source: Source;
+    startedAt: number;
+    endedAt: number | null;
+  };
+  samples: {
+    at: number;
+    participants: number;
+    messages: number;
+    coverage: number;
+    simulated?: boolean;
+  }[];
+  topics: {
+    id: string;
+    label: string;
+    peakPeople: number;
+    peakMessages: number;
+    samples: number;
+  }[];
+  decisions: Decision[];
+  sampleCount: number;
+  truncated: boolean;
+}
 export interface Topic {
   id: string;
   label: string;
@@ -32,6 +78,8 @@ export interface Topic {
   spark: number[];
   evidence: Message[];
   highlights?: { label: string; contributors: number }[];
+  periods?: { recent: number; previous: number };
+  intent?: TopicIntent;
   kind: "discussion" | "question" | "suggestion" | "emote";
   x: number;
   y: number;
@@ -69,6 +117,10 @@ export interface Snapshot {
     coverage: number;
     queue: number;
     windowSeconds: number;
+    windowEnd?: number;
+    completedAt?: number;
+    processingMs?: number;
+    ageMs?: number | null;
   };
   topics: Topic[];
   decision: Decision | null;
@@ -82,6 +134,7 @@ export interface Snapshot {
     showEvidence: boolean;
     testUniqueMessages: boolean;
     area: "people" | "messages";
+    overlay?: OverlayPreferences;
   };
   playback: { paused: boolean; speed: number; positionMs: number | null };
   overlayStale?: boolean;

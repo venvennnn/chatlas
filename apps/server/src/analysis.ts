@@ -16,6 +16,14 @@ export class Analysis {
   coverage = 1;
   sampleCoverage = 1;
   resetPending = false;
+  windowEnd = 0;
+  completedAt = 0;
+  processingMs = 0;
+  private requestedAt = 0;
+  private evidenceWindows = new Map<
+    number,
+    { sessionId: string; topics: Map<string, string[]>; simulated: boolean }
+  >();
   generation = 0;
   constructor(
     private store: Store,
@@ -39,6 +47,16 @@ export class Analysis {
         this.store.current()?.id !== r.sessionId
       )
         return;
+      this.windowEnd = r.windowEnd ?? Date.now();
+      this.completedAt = Date.now();
+      this.processingMs = Math.max(0, this.completedAt - this.requestedAt);
+      this.evidenceWindows.set(this.windowEnd, {
+        sessionId: r.sessionId,
+        simulated: this.store.setting("testUniqueMessages", false),
+        topics: new Map(r.topics.map((t: any) => [t.id, t.memberIds])),
+      });
+      for (const key of this.evidenceWindows.keys())
+        if (key < this.windowEnd - 60000) this.evidenceWindows.delete(key);
       this.provider = r.provider;
       this.coverage = this.sampleCoverage * r.coverage;
       this.queue = r.queue;
@@ -75,6 +93,14 @@ export class Analysis {
             : {}),
         };
       });
+      this.store.saveSample(
+        r.sessionId,
+        this.windowEnd,
+        this.topics,
+        r.participants ?? 0,
+        r.messageCount ?? 0,
+        this.coverage,
+      );
     });
     this.worker.on("error", (e) => {
       this.busy = false;
@@ -87,6 +113,7 @@ export class Analysis {
       return;
     }
     this.busy = true;
+    this.requestedAt = Date.now();
     const cap = 12000;
     this.sampleCoverage = Math.min(1, cap / Math.max(messages.length, 1));
     this.coverage = this.sampleCoverage;
@@ -104,8 +131,38 @@ export class Analysis {
     });
     this.resetPending = false;
   }
+  evidence(topicId: string, windowEnd: number, bucket: number) {
+    const window = this.evidenceWindows.get(windowEnd);
+    if (!window || window.sessionId !== this.store.current()?.id)
+      throw Object.assign(
+        new Error("This analysis window has expired. Select a recent point."),
+        { statusCode: 410 },
+      );
+    if (!window.topics.has(topicId))
+      throw Object.assign(new Error("Topic not found in this window"), {
+        statusCode: 404,
+      });
+    const ids = new Set(window.topics.get(topicId)!);
+    const start = windowEnd - 120000 + bucket * 10000;
+    const messages = this.store
+      .messages(window.sessionId, windowEnd)
+      .filter((m) => ids.has(m.id) && m.at >= start && m.at < start + 10000);
+    return {
+      start,
+      end: start + 10000,
+      total: messages.length,
+      people: new Set(messages.map((m) => (window.simulated ? m.id : m.userId)))
+        .size,
+      messages: messages.slice(-100),
+      limited: messages.length > 100,
+      simulated: window.simulated,
+    };
+  }
   reset() {
     this.topics = [];
+    this.evidenceWindows.clear();
+    this.windowEnd = 0;
+    this.completedAt = 0;
     this.resetPending = true;
     this.generation++;
     this.worker.postMessage({ clear: true });
