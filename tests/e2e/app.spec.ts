@@ -230,3 +230,35 @@ test("contributor testing toggle persists and shows a warning until disabled", a
     page.getByText("TEST MODE — simulated contributors", { exact: true }),
   ).toHaveCount(0);
 });
+
+test("illustrated front page opens the workspace and dedicated overlay controls", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Big chat. Clear voices." }),
+  ).toBeVisible();
+  const illustration = await page.request.get("/images/streamer-room.png");
+  expect(illustration.ok()).toBe(true);
+  expect(illustration.headers()["content-type"]).toContain("image/png");
+  await page
+    .getByRole("link", { name: "Explore the demo", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Live room", exact: true }),
+  ).toBeInViewport();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your community, on stream." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Overlay layout" }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Overlay layout" })
+    .selectOption("voting");
+  await expect(page.locator(".overlay-preview .broadcast-panel")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Twitch connection", exact: true }),
+  ).toBeHidden();
+});
