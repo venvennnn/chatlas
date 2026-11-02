@@ -61,7 +61,7 @@ test("Demo evidence, keyboard composer, replacement ballots, closed results and 
   const overlay = await context.newPage();
   await overlay.goto(link!);
   await expect(
-    overlay.getByRole("heading", { name: "What's chat talking about?" }),
+    overlay.getByRole("heading", { name: "The conversation, at a glance" }),
   ).toBeVisible();
   await expect(overlay.getByText("DEMO", { exact: true })).toBeVisible();
   expect(overlay.url()).not.toContain("#");
@@ -425,6 +425,13 @@ test("overlay renders ranked clusters and per-topic mentions without private quo
     "Topic 2",
     "Topic 0",
   ]);
+  const firstBar = overlay.getByRole("meter").first();
+  await expect(firstBar).toHaveAttribute("aria-valuemax", "18");
+  await expect(firstBar).toHaveAttribute("aria-valuenow", "18");
+  await expect(overlay.locator(".glance-notice")).toContainText(
+    "17 people mentioned survival",
+  );
+
   for (const cluster of await overlay.locator(".broadcast-topic-cluster").all())
     await expect(cluster.locator(".broadcast-highlights li")).toHaveCount(2);
   await expect(overlay.getByText("Private test message")).toHaveCount(0);
@@ -436,7 +443,7 @@ test("overlay renders ranked clusters and per-topic mentions without private quo
       .first()
       .locator(".broadcast-highlights li")
       .first(),
-  ).toHaveText("Survival17");
+  ).toHaveText("Survival · 17");
   expect(
     await overlay.evaluate(
       () => getComputedStyle(document.documentElement).backgroundColor,

@@ -2125,9 +2125,35 @@ function OverlayPanel({
         a.id.localeCompare(b.id),
     )
     .slice(0, layout === "atlas" ? 4 : 3);
+  const isTopics = layout !== "voting" && layout !== "results";
+  const displayLabel = (label: string) =>
+    ({
+      "Minecraft discussion": "Minecraft",
+      "Valorant discussion": "Valorant",
+      "Taking a break": "Take a break",
+      "Music discussion": "Music",
+    })[label] ?? label;
+  const leadingCount = Math.max(
+    0,
+    ...topics.map((topic) => topic.contributors),
+  );
+  const noteworthy = topics
+    .flatMap((topic) =>
+      (topic.highlights ?? [])
+        .filter(
+          (item) =>
+            item.label.toLowerCase() !==
+            displayLabel(topic.label).toLowerCase(),
+        )
+        .map((item) => ({ ...item, topicId: topic.id })),
+    )
+    .toSorted(
+      (a, b) =>
+        b.contributors - a.contributors || a.label.localeCompare(b.label),
+    )[0];
   return (
     <div
-      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""}`}
+      className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""} ${isTopics ? "broadcast-glance" : ""}`}
     >
       <img
         className="broadcast-mascot"
@@ -2138,6 +2164,11 @@ function OverlayPanel({
       />
       <div className="broadcast-heading">
         <Brand />
+        {isTopics && (
+          <h2 className="broadcast-glance-title">
+            The conversation, at a glance
+          </h2>
+        )}
         {state.settings.testUniqueMessages && (
           <span className="test-counts-label">TEST COUNTS</span>
         )}
@@ -2146,6 +2177,7 @@ function OverlayPanel({
             ? "CHAT PULSE"
             : (state.session?.source ?? "demo").toUpperCase()}
         </span>
+        {isTopics && <span className="broadcast-window">Last 2 min</span>}
         {stale && <span className="stale-label">STALE · reconnecting</span>}
       </div>
       {state.settings.paused ? (
@@ -2208,7 +2240,6 @@ function OverlayPanel({
         )
       ) : (
         <>
-          <h2>What's chat talking about?</h2>
           {topics.length ? (
             <div className="broadcast-clusters">
               {topics.map((topic, index) => (
@@ -2217,47 +2248,77 @@ function OverlayPanel({
                   key={topic.id}
                   aria-label={`${topic.label} cluster`}
                 >
-                  <div className="broadcast-cluster-orbit" aria-hidden="true">
-                    <IslandArt
-                      seed={index + 1}
-                      count={Math.min(topic.contributors, 8)}
-                    />
-                    <span className="broadcast-cluster-pill">
-                      <TopicGlyph label={topic.label} />
-                      <strong>{topic.label}</strong>
-                    </span>
-                    <span className="broadcast-cluster-rank">0{index + 1}</span>
+                  <div className="broadcast-cluster-pill">
+                    <TopicGlyph label={topic.label} />
+                    <strong>{displayLabel(topic.label)}</strong>
                   </div>
-                  <h3 className="sr-only">{topic.label}</h3>
-                  <div className="broadcast-cluster-counts">
+                  <div className="glance-counts">
+                    <strong>{topic.contributors}</strong>
                     <span>
-                      <Users size={13} />
-                      <b>{topic.contributors}</b>{" "}
                       {state.settings.testUniqueMessages
                         ? "test contributors"
                         : "people"}
                     </span>
+                    <small>{topic.messages} messages</small>
+                  </div>
+                  <p className="glance-metric-label">
+                    Distinct{" "}
+                    {state.settings.testUniqueMessages
+                      ? "test contributors"
+                      : "people"}{" "}
+                    per topic
+                  </p>
+                  <div
+                    className="glance-comparison"
+                    role="meter"
+                    aria-label={`${topic.label}: contributors relative to the leading displayed topic`}
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(1, leadingCount)}
+                    aria-valuenow={topic.contributors}
+                    aria-valuetext={`${topic.contributors} people; leading topic has ${leadingCount}`}
+                  >
+                    <i
+                      style={{
+                        width: `${leadingCount ? (topic.contributors / leadingCount) * 100 : 0}%`,
+                      }}
+                    />
                     <span>
-                      <MessageCircle size={13} />
-                      <b>{topic.messages}</b> messages
+                      {leadingCount
+                        ? `${topic.contributors}/${leadingCount}`
+                        : "No activity"}
                     </span>
                   </div>
-                  <div className="broadcast-highlight-heading">
-                    <span>TOP MENTIONS</span>
-                    <span>PEOPLE</span>
-                  </div>
-                  {topic.highlights?.length ? (
-                    <ol className="broadcast-highlights">
-                      {topic.highlights.slice(0, 3).map((highlight) => (
-                        <li key={highlight.label}>
-                          <span>{highlight.label}</span>
-                          <b>{highlight.contributors}</b>
-                        </li>
-                      ))}
+                  {topic.highlights?.some(
+                    (item) =>
+                      item.label.toLowerCase() !==
+                      displayLabel(topic.label).toLowerCase(),
+                  ) ? (
+                    <ol
+                      className="broadcast-highlights"
+                      aria-label="Top mentions by distinct contributors"
+                    >
+                      {topic.highlights
+                        .filter(
+                          (item) =>
+                            item.label.toLowerCase() !==
+                            displayLabel(topic.label).toLowerCase(),
+                        )
+                        .slice(0, 2)
+                        .map((highlight) => (
+                          <li key={highlight.label}>
+                            <span>
+                              {highlight.label === "Playing with friends"
+                                ? "With friends"
+                                : highlight.label}
+                            </span>
+                            <span aria-hidden="true"> · </span>
+                            <b>{highlight.contributors}</b>
+                          </li>
+                        ))}
                     </ol>
                   ) : (
                     <p className="broadcast-no-highlights">
-                      No common terms identified yet
+                      No further common mentions yet
                     </p>
                   )}
                   {state.settings.showEvidence && topic.evidence[0] && (
@@ -2272,7 +2333,27 @@ function OverlayPanel({
           ) : (
             <p className="broadcast-empty">Waiting for more conversation</p>
           )}
-          <p>Last 2 minutes · Mentions are not votes</p>
+          {!state.settings.paused && topics.length > 0 && (
+            <>
+              <div className="glance-notice">
+                <Sparkles size={25} />
+                <strong>
+                  {stale
+                    ? "Connection interrupted. Showing the last received conversation."
+                    : noteworthy
+                      ? `Worth noticing: ${noteworthy.contributors} ${state.settings.testUniqueMessages ? "test contributors" : noteworthy.contributors === 1 ? "person" : "people"} mentioned ${noteworthy.label.toLowerCase()}.`
+                      : `Worth noticing: ${displayLabel(topics[0].label)} leads with ${topics[0].contributors} distinct ${state.settings.testUniqueMessages ? "test contributors" : "people"}.`}
+                </strong>
+              </div>
+              <p className="glance-scale-note">
+                Bars compare each topic with the leading displayed topic (
+                {leadingCount} people).
+              </p>
+            </>
+          )}
+          <p className="glance-footer">
+            People may appear in multiple topics · Mentions are not votes
+          </p>
         </>
       )}
     </div>
