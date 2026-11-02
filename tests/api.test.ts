@@ -155,7 +155,7 @@ test("OAuth state is expiring, browser-bound, and single-use even on denial", as
   }
 });
 test("analysis promotes several contributors, expires evidence, keeps disagreement neutral", async () => {
-  const { app, store, analysis } = await createApp(":memory:", {
+  const { app, store, analysis, snapshot } = await createApp(":memory:", {
     background: false,
     model: "lexical",
   });
@@ -172,13 +172,34 @@ test("analysis promotes several contributors, expires evidence, keeps disagreeme
         arrival: now,
         emotes: [],
       });
+    for (let i = 0; i < 3; i++)
+      store.ingest(s.id, {
+        id: `repeat-${i}`,
+        userId: "0",
+        name: "Private name",
+        text: "Please play Minecraft privatecanary",
+        at: now,
+        arrival: now,
+        emotes: [],
+      });
     analysis.update(s.id, store.messages(s.id), now);
     for (let i = 0; i < 100 && !analysis.topics.length; i++)
       await new Promise((r) => setTimeout(r, 20));
     assert.ok(analysis.topics.length > 0);
     assert.equal(analysis.topics[0].label, "Minecraft discussion");
     assert.equal(analysis.topics[0].contributors, 4);
-    assert.equal(analysis.topics[0].messages, 4);
+    assert.equal(analysis.topics[0].messages, 7);
+    assert.deepEqual(analysis.topics[0].highlights, [
+      { label: "Minecraft", contributors: 4 },
+    ]);
+    const publicTopic = snapshot("overlay").topics[0];
+    assert.deepEqual(publicTopic.highlights, [
+      { label: "Minecraft", contributors: 4 },
+    ]);
+    assert.deepEqual(publicTopic.evidence, []);
+    assert.ok(
+      !JSON.stringify(publicTopic.highlights).includes("privatecanary"),
+    );
     assert.ok(analysis.topics[0].evidence.some((m) => m.text.startsWith("No")));
     analysis.update(s.id, [], now + 120001);
     for (let i = 0; i < 100 && analysis.busy; i++)

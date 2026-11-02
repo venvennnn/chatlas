@@ -31,6 +31,7 @@ export interface Topic {
   trend: number;
   spark: number[];
   evidence: Message[];
+  highlights?: { label: string; contributors: number }[];
   kind: "discussion" | "question" | "suggestion" | "emote";
   x: number;
   y: number;

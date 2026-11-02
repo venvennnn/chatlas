@@ -29,6 +29,45 @@ const canonical = (t) =>
     buffering: "lag",
     fps: "lag",
   })[t] ?? t;
+// Public highlights use a fixed vocabulary; never publish arbitrary chat text.
+const highlightLabels = {
+  minecraft: "Minecraft",
+  survival: "Survival",
+  creative: "Creative mode",
+  building: "Building",
+  build: "Building",
+  valorant: "Valorant",
+  ranked: "Ranked",
+  friends: "Playing with friends",
+  unrated: "Unrated",
+  competitive: "Competitive",
+  music: "Music",
+  lofi: "Lo-fi",
+  chill: "Chill music",
+  playlist: "Playlist",
+  song: "Song requests",
+  songs: "Song requests",
+  kpop: "K-pop",
+  break: "Take a break",
+  stretch: "Stretching",
+  stretching: "Stretching",
+  hydrate: "Hydration",
+  hydration: "Hydration",
+  water: "Hydration",
+  snack: "Snack break",
+  sound: "Audio",
+  audio: "Audio",
+  volume: "Volume",
+  loud: "Volume",
+  lag: "Lag",
+  buffering: "Buffering",
+  fps: "Frame rate",
+  chess: "Chess",
+  horror: "Horror games",
+  stardew: "Stardew Valley",
+  coop: "Co-op",
+  emote: "Emotes",
+};
 const cosine = (a, b) => {
   let dot = 0,
     aa = 0,
@@ -269,6 +308,29 @@ parentPort.on(
           stardew: "Stardew Valley discussion",
         };
         const label = c.key ? "Emote wave" : (safe[word] ?? "Other discussion");
+        const mentions = new Map();
+        for (const message of c.members) {
+          const labels = new Set(
+            tokens(message.text)
+              .map((term) =>
+                Object.hasOwn(highlightLabels, term)
+                  ? highlightLabels[term]
+                  : undefined,
+              )
+              .filter(Boolean),
+          );
+          for (const label of labels) {
+            if (!mentions.has(label)) mentions.set(label, new Set());
+            mentions.get(label).add(identity(message));
+          }
+        }
+        const highlights = [...mentions]
+          .map(([label, people]) => ({ label, contributors: people.size }))
+          .sort(
+            (a, b) =>
+              b.contributors - a.contributors || a.label.localeCompare(b.label),
+          )
+          .slice(0, 3);
         const spark = Array.from(
           { length: 12 },
           (_, i) =>
@@ -301,6 +363,7 @@ parentPort.on(
           trend: recent - prev,
           spark,
           evidence: c.members.slice(-12).reverse(),
+          highlights,
           kind: c.key
             ? "emote"
             : c.members.some((m) => /\?/.test(m.text))

@@ -369,3 +369,66 @@ test("top-four analytics rank independently of the inspector and update from the
       .first(),
   ).toHaveText("14");
 });
+
+test("overlay renders ranked clusters and per-topic mentions without private quotes", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".island").first()).toBeVisible();
+  await page.getByRole("button", { name: "Overlay", exact: true }).click();
+  await page.getByRole("button", { name: "Create link", exact: true }).click();
+  const link = await page.locator(".overlay-link code").textContent();
+  const context = await browser.newContext();
+  const overlay = await context.newPage();
+  const snapshot = await (await page.request.get("/api/snapshot")).json();
+  const fixture = {
+    ...snapshot,
+    topics: [7, 18, 12, 4, 20].map((contributors, i) => ({
+      ...snapshot.topics[0],
+      id: `cluster-${i}`,
+      label: `Topic ${i}`,
+      contributors,
+      messages: contributors * 2,
+      approved: i !== 4,
+      hidden: false,
+      highlights: [
+        { label: "Survival", contributors: contributors - 1 },
+        { label: "Building", contributors: 2 },
+      ],
+      evidence: [{ text: "Private test message", name: "Private author" }],
+    })),
+    settings: { ...snapshot.settings, showEvidence: false, paused: false },
+  };
+  await overlay.route("**/api/overlay/snapshot", (route) =>
+    route.fulfill({ json: fixture }),
+  );
+  await overlay.routeWebSocket("**/ws/overlay", (socket) =>
+    socket.send(JSON.stringify({ type: "snapshot", ...fixture })),
+  );
+  await overlay.goto(link!);
+  await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(3);
+  await expect(overlay.locator(".broadcast-cluster-pill strong")).toHaveText([
+    "Topic 1",
+    "Topic 2",
+    "Topic 0",
+  ]);
+  for (const cluster of await overlay.locator(".broadcast-topic-cluster").all())
+    await expect(cluster.locator(".broadcast-highlights li")).toHaveCount(2);
+  await expect(overlay.getByText("Private test message")).toHaveCount(0);
+  await overlay.goto(overlay.url().replace("layout=compact", "layout=atlas"));
+  await expect(overlay.locator(".broadcast-topic-cluster")).toHaveCount(4);
+  await expect(
+    overlay
+      .locator(".broadcast-topic-cluster")
+      .first()
+      .locator(".broadcast-highlights li")
+      .first(),
+  ).toHaveText("Survival17");
+  expect(
+    await overlay.evaluate(
+      () => getComputedStyle(document.documentElement).backgroundColor,
+    ),
+  ).toBe("rgba(0, 0, 0, 0)");
+  await context.close();
+});

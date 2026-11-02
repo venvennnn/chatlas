@@ -53,6 +53,7 @@ import { api, ApiError, subscribe } from "./api";
 import "./style.css";
 import "./studio.css";
 import "./twitch.css";
+import "./overlay-clusters.css";
 import { TopicAnalytics } from "./TopicAnalytics";
 const colors = [
   "blue",
@@ -2117,7 +2118,13 @@ function OverlayPanel({
   const d = state.decision;
   const topics = state.topics
     .filter((t) => t.approved && !t.hidden)
-    .slice(0, layout === "atlas" ? 8 : 3);
+    .toSorted(
+      (a, b) =>
+        b.contributors - a.contributors ||
+        b.messages - a.messages ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, layout === "atlas" ? 4 : 3);
   return (
     <div
       className={`broadcast-panel broadcast-${layout} ${preview ? "preview" : ""} ${layout === "atlas" ? "expanded" : ""}`}
@@ -2196,25 +2203,67 @@ function OverlayPanel({
         <>
           <h2>What's chat talking about?</h2>
           {topics.length ? (
-            <div className="broadcast-topics">
-              {topics.map((t) => (
-                <div key={t.id}>
-                  <span className="broadcast-topic-glyph">
-                    <TopicGlyph label={t.label} />
-                  </span>
-                  <strong>{t.label}</strong>
-                  <span>{t.contributors} people</span>
-                </div>
+            <div className="broadcast-clusters">
+              {topics.map((topic, index) => (
+                <article
+                  className={`broadcast-topic-cluster ${colors[index]}`}
+                  key={topic.id}
+                  aria-label={`${topic.label} cluster`}
+                >
+                  <div className="broadcast-cluster-orbit" aria-hidden="true">
+                    <IslandArt
+                      seed={index + 1}
+                      count={Math.min(topic.contributors, 8)}
+                    />
+                    <span className="broadcast-cluster-pill">
+                      <TopicGlyph label={topic.label} />
+                      <strong>{topic.label}</strong>
+                    </span>
+                    <span className="broadcast-cluster-rank">0{index + 1}</span>
+                  </div>
+                  <h3 className="sr-only">{topic.label}</h3>
+                  <div className="broadcast-cluster-counts">
+                    <span>
+                      <Users size={13} />
+                      <b>{topic.contributors}</b>{" "}
+                      {state.settings.testUniqueMessages
+                        ? "test contributors"
+                        : "people"}
+                    </span>
+                    <span>
+                      <MessageCircle size={13} />
+                      <b>{topic.messages}</b> messages
+                    </span>
+                  </div>
+                  <div className="broadcast-highlight-heading">
+                    <span>TOP MENTIONS</span>
+                    <span>PEOPLE</span>
+                  </div>
+                  {topic.highlights?.length ? (
+                    <ol className="broadcast-highlights">
+                      {topic.highlights.slice(0, 3).map((highlight) => (
+                        <li key={highlight.label}>
+                          <span>{highlight.label}</span>
+                          <b>{highlight.contributors}</b>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="broadcast-no-highlights">
+                      No common terms identified yet
+                    </p>
+                  )}
+                  {state.settings.showEvidence && topic.evidence[0] && (
+                    <blockquote className="broadcast-cluster-quote">
+                      <p>“{topic.evidence[0].text}”</p>
+                      <cite>{topic.evidence[0].name}</cite>
+                    </blockquote>
+                  )}
+                </article>
               ))}
             </div>
           ) : (
             <p className="broadcast-empty">Waiting for more conversation</p>
-          )}
-          {state.settings.showEvidence && topics[0]?.evidence[0] && (
-            <blockquote className="broadcast-quote">
-              <p>{topics[0].evidence[0].text}</p>
-              <cite>{topics[0].evidence[0].name}</cite>
-            </blockquote>
           )}
           <p>Last 2 minutes · Mentions are not votes</p>
         </>
